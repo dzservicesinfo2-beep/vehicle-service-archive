@@ -1,126 +1,197 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function Dashboard({ openVehicleSearch }) {
-const [vehicleCount, setVehicleCount] = useState(0)
-const [customerCount, setCustomerCount] = useState(0)
-const [serviceCount, setServiceCount] = useState(0)
+export default function Dashboard({
+  openVehicleSearch,
+  openNewVehicle,
+}) {
+  const [vehicleCount, setVehicleCount] = useState(0)
+  const [customerCount, setCustomerCount] = useState(0)
+  const [serviceCount, setServiceCount] = useState(0)
+  const [loading, setLoading] = useState(true)
 
-useEffect(() => {
-loadStats()
-}, [])
+  useEffect(() => {
+    loadStats()
+  }, [])
 
-async function loadStats() {
-  const { count } = await supabase
-  .from('vehicles')
-  .select('*', { count: 'exact' })
+  async function loadStats() {
+    setLoading(true)
 
-  const { count: customerTotal } = await supabase
-  .from('vehicles')
-  .select('*', { count: 'exact' })
+    const {
+      count: vehicleTotal,
+      error: vehicleError,
+    } = await supabase
+      .from('vehicles')
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
 
-  const { count: serviceTotal } = await supabase
-  .from('service_visits')
-  .select('*', { count: 'exact' })
+    const {
+      data: customerRows,
+      error: customerError,
+    } = await supabase
+      .from('vehicles')
+      .select('customer_name')
 
-  setVehicleCount(count || 0)
-  setCustomerCount(customerTotal || 0)
-  setServiceCount(serviceTotal || 0)
-}
+    const {
+      count: serviceTotal,
+      error: serviceError,
+    } = await supabase
+      .from('service_visits')
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
 
-return (
-<div style={{ padding: '30px' }}>
-<div
-style={{
-display: 'flex',
-justifyContent: 'space-between',
-alignItems: 'center',
-marginBottom: '40px',
-}}
->
-<div style={{ width: '100px' }}></div>
+    if (vehicleError || customerError || serviceError) {
+      alert(
+        vehicleError?.message ||
+          customerError?.message ||
+          serviceError?.message
+      )
 
-    <h1
-      style={{
-        margin: 0,
-        textAlign: 'center',
-        fontSize: '52px',
-      }}
-    >
-      Vehicle Service Archive
-    </h1>
+      setLoading(false)
+      return
+    }
 
-    <button
-      onClick={async () => {
-        await supabase.auth.signOut()
-      }}
-    >
-      Logout
-    </button>
-  </div>
+    const uniqueCustomers = new Set(
+      (customerRows || [])
+        .map((vehicle) =>
+          vehicle.customer_name?.trim().toLowerCase()
+        )
+        .filter(Boolean)
+    )
 
-  <div
-    style={{
-      display: 'flex',
-      justifyContent: 'center',
-      gap: '25px',
-      flexWrap: 'wrap',
-      marginBottom: '40px',
-    }}
-  >
-    <div
-      style={{
-        width: '250px',
-        padding: '20px',
-        border: '1px solid #ccc',
-        borderRadius: '10px',
-        textAlign: 'center',
-      }}
-    >
-      <h2>Total Vehicles</h2>
-      <h1>{vehicleCount}</h1>
+    setVehicleCount(vehicleTotal || 0)
+    setCustomerCount(uniqueCustomers.size)
+    setServiceCount(serviceTotal || 0)
+    setLoading(false)
+  }
+
+  async function handleLogout() {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      alert(error.message)
+    }
+  }
+
+  return (
+    <div style={{ padding: '30px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          position: 'relative',
+          minHeight: '70px',
+          marginBottom: '40px',
+        }}
+      >
+        <h1
+          style={{
+            margin: 0,
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            textAlign: 'center',
+            fontSize: '52px',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Vehicle Service Archive
+        </h1>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '25px',
+          flexWrap: 'wrap',
+          marginBottom: '40px',
+        }}
+      >
+        <div
+          style={{
+            width: '250px',
+            padding: '20px',
+            border: '1px solid #ccc',
+            borderRadius: '10px',
+            textAlign: 'center',
+          }}
+        >
+          <h2>Total Vehicles</h2>
+          <h1>{loading ? '...' : vehicleCount}</h1>
+        </div>
+
+        <div
+          style={{
+            width: '250px',
+            padding: '20px',
+            border: '1px solid #ccc',
+            borderRadius: '10px',
+            textAlign: 'center',
+          }}
+        >
+          <h2>Total Customers</h2>
+          <h1>{loading ? '...' : customerCount}</h1>
+        </div>
+
+        <div
+          style={{
+            width: '250px',
+            padding: '20px',
+            border: '1px solid #ccc',
+            borderRadius: '10px',
+            textAlign: 'center',
+          }}
+        >
+          <h2>Total Service Visits</h2>
+          <h1>{loading ? '...' : serviceCount}</h1>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '15px',
+          flexWrap: 'wrap',
+        }}
+      >
+        <button
+          type="button"
+          onClick={openVehicleSearch}
+          style={{
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer',
+          }}
+        >
+          Open Vehicle Search
+        </button>
+
+        <button
+          type="button"
+          onClick={openNewVehicle}
+          style={{
+            padding: '12px 24px',
+            fontSize: '16px',
+            cursor: 'pointer',
+          }}
+        >
+          Add New Vehicle
+        </button>
+      </div>
     </div>
-
-    <div
-      style={{
-        width: '250px',
-        padding: '20px',
-        border: '1px solid #ccc',
-        borderRadius: '10px',
-        textAlign: 'center',
-      }}
-    >
-      <h2>Total Customers</h2>
-      <h1>{customerCount}</h1>
-    </div>
-
-    <div
-      style={{
-        width: '250px',
-        padding: '20px',
-        border: '1px solid #ccc',
-        borderRadius: '10px',
-        textAlign: 'center',
-      }}
-    >
-      <h2>Total Service Visits</h2>
-      <h1>{serviceCount}</h1>
-    </div>
-  </div>
-
-  <div style={{ textAlign: 'center' }}>
-    <button
-      onClick={openVehicleSearch}
-      style={{
-        padding: '12px 24px',
-        fontSize: '16px',
-        cursor: 'pointer',
-      }}
-    >
-      Open Vehicle Search
-    </button>
-  </div>
-</div>
-
-)
+  )
 }

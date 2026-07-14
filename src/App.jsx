@@ -4,47 +4,70 @@ import Login from './pages/Login'
 import VehicleSearch from './pages/VehicleSearch'
 import CustomerDashboard from './pages/CustomerDashboard'
 import Dashboard from './pages/Dashboard'
+import NewVehicle from './pages/NewVehicle'
 
 function App() {
   const [session, setSession] = useState(null)
-  const [showVehicleSearch, setShowVehicleSearch] = useState(false)
-useEffect(() => {
-async function getCurrentSession() {
-const { data } = await supabase.auth.getSession()
-setSession(data.session)
-}
+  const [employeePage, setEmployeePage] = useState('dashboard')
 
-getCurrentSession()
+  useEffect(() => {
+    async function getCurrentSession() {
+      const { data } = await supabase.auth.getSession()
+      setSession(data.session)
+    }
 
-const {
-data: { subscription },
-} = supabase.auth.onAuthStateChange(
-(_event, session) => {
-setSession(session)
-}
-)
+    getCurrentSession()
 
-return () => subscription.unsubscribe()
-}, [])
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession)
 
+      if (!currentSession) {
+        setEmployeePage('dashboard')
+      }
+    })
 
-if (!session) {
-  return <Login />
-}
+    return () => subscription.unsubscribe()
+  }, [])
 
-if (session.user.email === 'customer@test.com') {
-  return <CustomerDashboard />
-}
+  if (!session) {
+    return <Login />
+  }
 
-if (showVehicleSearch) {
-  return <VehicleSearch />
-}
+  if (session.user.email === 'customer@test.com') {
+    return <CustomerDashboard />
+  }
 
-return (
-  <Dashboard
-    openVehicleSearch={() => setShowVehicleSearch(true)}
-  />
-)
+  if (employeePage === 'vehicle-search') {
+    return (
+      <VehicleSearch
+        backToDashboard={() => setEmployeePage('dashboard')}
+      />
+    )
+  }
+
+  if (employeePage === 'new-vehicle') {
+    return (
+      <NewVehicle
+        backToDashboard={() => setEmployeePage('dashboard')}
+        openVehicleSearch={() =>
+          setEmployeePage('vehicle-search')
+        }
+      />
+    )
+  }
+
+  return (
+    <Dashboard
+      openVehicleSearch={() =>
+        setEmployeePage('vehicle-search')
+      }
+      openNewVehicle={() =>
+        setEmployeePage('new-vehicle')
+      }
+    />
+  )
 }
 
 export default App
