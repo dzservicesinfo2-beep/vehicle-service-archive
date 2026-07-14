@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import VehicleProfile from './VehicleProfile'
 
-export default function VehicleSearch() {
+export default function VehicleSearch({ backToDashboard }) {
   const [registration, setRegistration] = useState('')
   const [vehicles, setVehicles] = useState([])
   const [selectedVehicle, setSelectedVehicle] = useState(null)
+  const [searching, setSearching] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
 
   async function searchVehicles() {
     const searchText = registration.trim()
@@ -13,8 +15,12 @@ export default function VehicleSearch() {
     if (!searchText) {
       setVehicles([])
       setSelectedVehicle(null)
+      setHasSearched(false)
       return
     }
+
+    setSearching(true)
+    setSelectedVehicle(null)
 
     const { data, error } = await supabase
       .from('vehicles')
@@ -22,6 +28,10 @@ export default function VehicleSearch() {
       .or(
         `registration.ilike.%${searchText}%,customer_name.ilike.%${searchText}%,phone.ilike.%${searchText}%,make.ilike.%${searchText}%,model.ilike.%${searchText}%`
       )
+      .order('registration', { ascending: true })
+
+    setSearching(false)
+    setHasSearched(true)
 
     if (error) {
       alert(error.message)
@@ -29,7 +39,6 @@ export default function VehicleSearch() {
     }
 
     setVehicles(data || [])
-    setSelectedVehicle(null)
   }
 
   async function handleLogout() {
@@ -43,11 +52,19 @@ export default function VehicleSearch() {
   function handleVehicleDeleted(deletedRegistration) {
     setVehicles((currentVehicles) =>
       currentVehicles.filter(
-        (vehicle) => vehicle.registration !== deletedRegistration
+        (vehicle) =>
+          vehicle.registration !== deletedRegistration
       )
     )
 
     setSelectedVehicle(null)
+  }
+
+  function clearSearch() {
+    setRegistration('')
+    setVehicles([])
+    setSelectedVehicle(null)
+    setHasSearched(false)
   }
 
   return (
@@ -55,93 +72,178 @@ export default function VehicleSearch() {
       <div
         style={{
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '20px',
-          position: 'relative',
-          minHeight: '55px',
+          gap: '15px',
+          marginBottom: '25px',
         }}
       >
+        <button
+          type="button"
+          onClick={backToDashboard}
+          style={{
+            padding: '10px 16px',
+            cursor: 'pointer',
+          }}
+        >
+          Back to Dashboard
+        </button>
+
         <h1
           style={{
             margin: 0,
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            textAlign: 'center',
             fontSize: '42px',
-            whiteSpace: 'nowrap',
           }}
         >
           Vehicle Service Archive
         </h1>
 
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-
-      <input
-        type="text"
-        placeholder="Search Registration, Customer, Phone, Make or Model"
-        value={registration}
-        onChange={(event) => setRegistration(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            searchVehicles()
-          }
-        }}
-        style={{
-          padding: '10px',
-          width: '420px',
-          maxWidth: '100%',
-        }}
-      />
-
-      <button
-        type="button"
-        style={{
-          marginLeft: '10px',
-          padding: '10px 20px',
-        }}
-        onClick={searchVehicles}
-      >
-        Search
-      </button>
-
-      <hr />
-
-      {vehicles.map((vehicle) => (
-        <div
-          key={vehicle.id || vehicle.registration}
+        <button
+          type="button"
+          onClick={handleLogout}
           style={{
-            border: '1px solid #ccc',
-            padding: '10px',
-            marginBottom: '10px',
-            borderRadius: '8px',
+            padding: '10px 16px',
+            cursor: 'pointer',
           }}
         >
-          <h3>{vehicle.registration}</h3>
+          Logout
+        </button>
+      </div>
 
-          <p>
-            {vehicle.make} {vehicle.model}
-          </p>
-
-          <p>{vehicle.customer_name}</p>
-
+      {selectedVehicle ? (
+        <div>
           <button
             type="button"
-            onClick={() => setSelectedVehicle(vehicle)}
+            onClick={() => setSelectedVehicle(null)}
+            style={{
+              padding: '10px 16px',
+              marginBottom: '20px',
+              cursor: 'pointer',
+            }}
           >
-            Open Vehicle
+            Back to Search Results
           </button>
+
+          <VehicleProfile
+            vehicle={selectedVehicle}
+            onVehicleDeleted={handleVehicleDeleted}
+          />
         </div>
-      ))}
+      ) : (
+        <>
+          <div
+            style={{
+              display: 'flex',
+              gap: '10px',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              marginBottom: '25px',
+            }}
+          >
+            <input
+              type="text"
+              placeholder="Search Registration, Customer, Phone, Make or Model"
+              value={registration}
+              onChange={(event) =>
+                setRegistration(event.target.value)
+              }
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  searchVehicles()
+                }
+              }}
+              style={{
+                padding: '12px',
+                width: '500px',
+                maxWidth: '100%',
+                fontSize: '16px',
+                boxSizing: 'border-box',
+              }}
+            />
 
-      <hr />
+            <button
+              type="button"
+              onClick={searchVehicles}
+              disabled={searching}
+              style={{
+                padding: '12px 22px',
+                cursor: searching
+                  ? 'not-allowed'
+                  : 'pointer',
+              }}
+            >
+              {searching ? 'Searching...' : 'Search'}
+            </button>
 
-      {selectedVehicle && (
-        <VehicleProfile
-          vehicle={selectedVehicle}
-          onVehicleDeleted={handleVehicleDeleted}
-        />
+            <button
+              type="button"
+              onClick={clearSearch}
+              disabled={
+                searching &&
+                !registration &&
+                vehicles.length === 0
+              }
+              style={{
+                padding: '12px 22px',
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
+          </div>
+
+          {searching && <p>Searching for vehicles...</p>}
+
+          {!searching &&
+            hasSearched &&
+            vehicles.length === 0 && (
+              <p>No matching vehicles were found.</p>
+            )}
+
+          {!searching &&
+            vehicles.map((vehicle) => (
+              <div
+                key={
+                  vehicle.id ||
+                  vehicle.registration
+                }
+                style={{
+                  border: '1px solid #ccc',
+                  padding: '16px',
+                  marginBottom: '12px',
+                  borderRadius: '8px',
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>
+                  {vehicle.registration}
+                </h3>
+
+                <p>
+                  <strong>Vehicle:</strong>{' '}
+                  {vehicle.make} {vehicle.model}
+                </p>
+
+                <p>
+                  <strong>Customer:</strong>{' '}
+                  {vehicle.customer_name}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedVehicle(vehicle)
+                  }
+                  style={{
+                    padding: '10px 16px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Open Vehicle
+                </button>
+              </div>
+            ))}
+        </>
       )}
     </div>
   )
