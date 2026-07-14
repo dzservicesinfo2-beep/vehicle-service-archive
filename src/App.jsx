@@ -8,25 +8,64 @@ import NewVehicle from './pages/NewVehicle'
 
 function App() {
   const [session, setSession] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [loadingProfile, setLoadingProfile] = useState(true)
   const [employeePage, setEmployeePage] = useState('dashboard')
 
   useEffect(() => {
-    async function getCurrentSession() {
+    async function loadSessionAndProfile() {
       const { data } = await supabase.auth.getSession()
-      setSession(data.session)
-    }
+      const currentSession = data.session
 
-    getCurrentSession()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession)
 
       if (!currentSession) {
-        setEmployeePage('dashboard')
+        setProfile(null)
+        setLoadingProfile(false)
+        return
       }
-    })
+
+      await loadProfile(currentSession.user.id)
+    }
+
+    async function loadProfile(authUserId) {
+      setLoadingProfile(true)
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('auth_user_id', authUserId)
+        .eq('active', true)
+        .single()
+
+      if (error) {
+        setProfile(null)
+        setLoadingProfile(false)
+        return
+      }
+
+      setProfile(data)
+      setLoadingProfile(false)
+    }
+
+    loadSessionAndProfile()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (_event, currentSession) => {
+        setSession(currentSession)
+
+        if (!currentSession) {
+          setProfile(null)
+          setEmployeePage('dashboard')
+          setLoadingProfile(false)
+          return
+        }
+
+        await loadProfile(currentSession.user.id)
+      }
+    )
 
     return () => subscription.unsubscribe()
   }, [])
@@ -35,14 +74,67 @@ function App() {
     return <Login />
   }
 
-  if (session.user.email === 'customer@test.com') {
+  if (loadingProfile) {
+    return (
+      <div style={{ padding: '40px' }}>
+        <p>Loading account...</p>
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div style={{ padding: '40px' }}>
+        <h1>Access Denied</h1>
+
+        <p>
+          This account does not have an active Vehicle Service Archive profile.
+        </p>
+
+        <button
+          type="button"
+          onClick={async () => {
+            await supabase.auth.signOut()
+          }}
+        >
+          Logout
+        </button>
+      </div>
+    )
+  }
+
+  if (profile.role === 'customer') {
     return <CustomerDashboard />
+  }
+
+  if (
+    profile.role !== 'admin' &&
+    profile.role !== 'employee'
+  ) {
+    return (
+      <div style={{ padding: '40px' }}>
+        <h1>Access Denied</h1>
+
+        <p>This account role is not permitted.</p>
+
+        <button
+          type="button"
+          onClick={async () => {
+            await supabase.auth.signOut()
+          }}
+        >
+          Logout
+        </button>
+      </div>
+    )
   }
 
   if (employeePage === 'vehicle-search') {
     return (
       <VehicleSearch
-        backToDashboard={() => setEmployeePage('dashboard')}
+        backToDashboard={() =>
+          setEmployeePage('dashboard')
+        }
       />
     )
   }
@@ -50,7 +142,9 @@ function App() {
   if (employeePage === 'new-vehicle') {
     return (
       <NewVehicle
-        backToDashboard={() => setEmployeePage('dashboard')}
+        backToDashboard={() =>
+          setEmployeePage('dashboard')
+        }
         openVehicleSearch={() =>
           setEmployeePage('vehicle-search')
         }
