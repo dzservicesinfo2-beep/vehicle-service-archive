@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function EditServiceVisit({
@@ -6,39 +6,34 @@ export default function EditServiceVisit({
   onSaved,
   onCancel,
 }) {
-  const [entryReport, setEntryReport] = useState(
-    visit.entry_report || ''
-  )
-  const [repairsReport, setRepairsReport] = useState(
-    visit.repairs_report || ''
-  )
-  const [repairParts, setRepairParts] = useState(
-    visit.repair_parts || ''
-  )
-  const [completionSummary, setCompletionSummary] = useState(
-    visit.completion_summary || ''
-  )
+  const [entryReport, setEntryReport] = useState('')
+  const [repairsReport, setRepairsReport] = useState('')
+  const [repairParts, setRepairParts] = useState('')
+  const [completionSummary, setCompletionSummary] =
+    useState('')
   const [saving, setSaving] = useState(false)
 
-  const textareaStyle = {
-    width: '900px',
-    height: '200px',
-    padding: '10px',
-    borderRadius: '8px',
-    border: '1px solid #ccc',
-    fontSize: '14px',
-  }
+  useEffect(() => {
+    setEntryReport(visit.entry_report || '')
+    setRepairsReport(visit.repairs_report || '')
+    setRepairParts(visit.repair_parts || '')
+    setCompletionSummary(
+      visit.completion_summary || ''
+    )
+  }, [visit])
 
-  async function saveVisit() {
+  async function saveVisit(event) {
+    event.preventDefault()
+
     setSaving(true)
 
     const { data, error } = await supabase
       .from('service_visits')
       .update({
-        entry_report: entryReport,
-        repairs_report: repairsReport,
-        repair_parts: repairParts,
-        completion_summary: completionSummary,
+        entry_report: entryReport.trim(),
+        repairs_report: repairsReport.trim(),
+        repair_parts: repairParts.trim(),
+        completion_summary: completionSummary.trim(),
       })
       .eq('id', visit.id)
       .select()
@@ -47,54 +42,83 @@ export default function EditServiceVisit({
     setSaving(false)
 
     if (error) {
-      alert(error.message)
+      alert(
+        `Unable to update service visit: ${error.message}`
+      )
       return
     }
-
-    alert('Service visit updated successfully')
 
     if (onSaved) {
       onSaved(data)
     }
+
+    alert('Service visit updated successfully.')
+  }
+
+  const textareaStyle = {
+    width: '100%',
+    maxWidth: '900px',
+    minHeight: '200px',
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px solid #ccc',
+    fontSize: '16px',
+    boxSizing: 'border-box',
+    resize: 'vertical',
   }
 
   return (
-    <div style={{ marginTop: '20px' }}>
+    <form
+      onSubmit={saveVisit}
+      style={{ marginTop: '20px' }}
+    >
       <textarea
         value={entryReport}
-        onChange={(e) => setEntryReport(e.target.value)}
+        onChange={(event) =>
+          setEntryReport(event.target.value)
+        }
         placeholder="Entry Report"
         style={textareaStyle}
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <textarea
         value={repairsReport}
-        onChange={(e) => setRepairsReport(e.target.value)}
+        onChange={(event) =>
+          setRepairsReport(event.target.value)
+        }
         placeholder="Repairs"
         style={textareaStyle}
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <textarea
         value={repairParts}
-        onChange={(e) => setRepairParts(e.target.value)}
+        onChange={(event) =>
+          setRepairParts(event.target.value)
+        }
         placeholder="Parts"
         style={textareaStyle}
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <textarea
         value={completionSummary}
-        onChange={(e) => setCompletionSummary(e.target.value)}
+        onChange={(event) =>
+          setCompletionSummary(event.target.value)
+        }
         placeholder="Summary"
         style={textareaStyle}
       />
 
-      <br /><br />
+      <br />
+      <br />
 
       <div
         style={{
@@ -103,19 +127,20 @@ export default function EditServiceVisit({
         }}
       >
         <button
-          onClick={saveVisit}
+          type="submit"
           disabled={saving}
         >
-          {saving ? 'Saving...' : 'Save Changes'}
+          {saving ? 'Saving Changes...' : 'Save Changes'}
         </button>
 
         <button
+          type="button"
           onClick={onCancel}
           disabled={saving}
         >
           Cancel
         </button>
       </div>
-    </div>
+    </form>
   )
 }

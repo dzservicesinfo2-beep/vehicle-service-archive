@@ -2,23 +2,54 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import EditServiceVisit from './EditServiceVisit'
 
-export default function ServiceHistory({ registration }) {
+export default function ServiceHistory({
+  registration,
+  newVisit,
+}) {
   const [visits, setVisits] = useState([])
   const [editingVisit, setEditingVisit] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [deletingVisitId, setDeletingVisitId] =
+    useState(null)
 
   useEffect(() => {
     loadVisits()
   }, [registration])
 
+  useEffect(() => {
+    if (!newVisit) {
+      return
+    }
+
+    setVisits((currentVisits) => {
+      const alreadyExists = currentVisits.some(
+        (visit) => visit.id === newVisit.id
+      )
+
+      if (alreadyExists) {
+        return currentVisits
+      }
+
+      return [newVisit, ...currentVisits]
+    })
+  }, [newVisit])
+
   async function loadVisits() {
+    setLoading(true)
+
     const { data, error } = await supabase
       .from('service_visits')
       .select('*')
       .eq('registration', registration)
       .order('service_date', { ascending: false })
+      .order('id', { ascending: false })
+
+    setLoading(false)
 
     if (error) {
-      console.error(error)
+      alert(
+        `Unable to load service history: ${error.message}`
+      )
       return
     }
 
@@ -34,13 +65,19 @@ export default function ServiceHistory({ registration }) {
       return
     }
 
+    setDeletingVisitId(visit.id)
+
     const { error } = await supabase
       .from('service_visits')
       .delete()
       .eq('id', visit.id)
 
+    setDeletingVisitId(null)
+
     if (error) {
-      alert(error.message)
+      alert(
+        `Unable to delete service visit: ${error.message}`
+      )
       return
     }
 
@@ -54,7 +91,7 @@ export default function ServiceHistory({ registration }) {
       setEditingVisit(null)
     }
 
-    alert('Service visit deleted successfully')
+    alert('Service visit deleted successfully.')
   }
 
   return (
@@ -63,9 +100,13 @@ export default function ServiceHistory({ registration }) {
         Service History
       </h2>
 
-      {visits.length === 0 ? (
+      {loading && <p>Loading service history...</p>}
+
+      {!loading && visits.length === 0 && (
         <p>No service visits yet.</p>
-      ) : (
+      )}
+
+      {!loading &&
         visits.map((visit) => (
           <div
             key={visit.id}
@@ -82,24 +123,26 @@ export default function ServiceHistory({ registration }) {
             </h3>
 
             <p>
-              <strong>Entry Report</strong>
+              <strong>Entry Report:</strong>
             </p>
 
-            <p>{visit.entry_report}</p>
+            <p>
+              {visit.entry_report || 'Not recorded'}
+            </p>
 
             <p>
               <strong>Repairs:</strong>{' '}
-              {visit.repairs_report}
+              {visit.repairs_report || 'Not recorded'}
             </p>
 
             <p>
               <strong>Parts:</strong>{' '}
-              {visit.repair_parts}
+              {visit.repair_parts || 'Not recorded'}
             </p>
 
             <p>
               <strong>Summary:</strong>{' '}
-              {visit.completion_summary}
+              {visit.completion_summary || 'Not recorded'}
             </p>
 
             <div
@@ -107,9 +150,11 @@ export default function ServiceHistory({ registration }) {
                 display: 'flex',
                 gap: '10px',
                 marginTop: '15px',
+                flexWrap: 'wrap',
               }}
             >
               <button
+                type="button"
                 onClick={() =>
                   setEditingVisit(
                     editingVisit === visit.id
@@ -117,6 +162,7 @@ export default function ServiceHistory({ registration }) {
                       : visit.id
                   )
                 }
+                disabled={deletingVisitId === visit.id}
                 style={{
                   padding: '8px 14px',
                   borderRadius: '6px',
@@ -130,17 +176,24 @@ export default function ServiceHistory({ registration }) {
               </button>
 
               <button
+                type="button"
                 onClick={() => deleteVisit(visit)}
+                disabled={deletingVisitId === visit.id}
                 style={{
                   backgroundColor: '#b42318',
                   color: 'white',
                   border: 'none',
                   padding: '8px 14px',
                   borderRadius: '6px',
-                  cursor: 'pointer',
+                  cursor:
+                    deletingVisitId === visit.id
+                      ? 'not-allowed'
+                      : 'pointer',
                 }}
               >
-                Delete Visit
+                {deletingVisitId === visit.id
+                  ? 'Deleting...'
+                  : 'Delete Visit'}
               </button>
             </div>
 
@@ -164,8 +217,7 @@ export default function ServiceHistory({ registration }) {
               />
             )}
           </div>
-        ))
-      )}
+        ))}
     </div>
   )
 }

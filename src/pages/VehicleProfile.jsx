@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import EditVehicle from './EditVehicle'
 import PhotoGallery from './PhotoGallery'
 import ServiceHistory from './ServiceHistory'
@@ -11,6 +12,9 @@ export default function VehicleProfile({
   onVehicleDeleted,
   onVehicleUpdated,
 }) {
+  const [newVisit, setNewVisit] = useState(null)
+  const [newPhoto, setNewPhoto] = useState(null)
+
   if (!vehicle) {
     return null
   }
@@ -69,16 +73,26 @@ export default function VehicleProfile({
         onVehicleUpdated={onVehicleUpdated}
       />
 
-      <PhotoUpload vehicle={vehicle} />
+      <PhotoUpload
+        vehicle={vehicle}
+        onPhotoUploaded={setNewPhoto}
+      />
 
-      <PhotoGallery vehicle={vehicle} />
+      <PhotoGallery
+        vehicle={vehicle}
+        newPhoto={newPhoto}
+      />
 
       <hr />
 
-      <NewServiceVisit vehicle={vehicle} />
+      <NewServiceVisit
+        vehicle={vehicle}
+        onVisitAdded={setNewVisit}
+      />
 
       <ServiceHistory
         registration={vehicle.registration}
+        newVisit={newVisit}
       />
 
       <DeleteVehicle
