@@ -9,8 +9,11 @@ import DeleteVehicle from './DeleteVehicle'
 export default function VehicleProfile({
   vehicle,
   onVehicleDeleted,
+  onVehicleUpdated,
 }) {
-  if (!vehicle) return null
+  if (!vehicle) {
+    return null
+  }
 
   return (
     <div style={{ padding: '20px' }}>
@@ -20,42 +23,51 @@ export default function VehicleProfile({
 
       <p>
         <strong>Customer:</strong>{' '}
-        {vehicle.customer_name}
+        {vehicle.customer_name || 'Not provided'}
       </p>
 
       <p>
-        <strong>Phone:</strong> {vehicle.phone}
+        <strong>Phone:</strong>{' '}
+        {vehicle.phone || 'Not provided'}
       </p>
 
       <p>
-        <strong>Email:</strong> {vehicle.email}
+        <strong>Email:</strong>{' '}
+        {vehicle.email || 'Not provided'}
       </p>
 
       <h2>Vehicle Details</h2>
 
       <p>
-        <strong>Make:</strong> {vehicle.make}
+        <strong>Make:</strong>{' '}
+        {vehicle.make || 'Not provided'}
       </p>
 
       <p>
-        <strong>Model:</strong> {vehicle.model}
+        <strong>Model:</strong>{' '}
+        {vehicle.model || 'Not provided'}
       </p>
 
       <p>
-        <strong>Year:</strong> {vehicle.year}
+        <strong>Year:</strong>{' '}
+        {vehicle.year || 'Not provided'}
       </p>
 
       <p>
-        <strong>VIN:</strong> {vehicle.vin}
+        <strong>VIN:</strong>{' '}
+        {vehicle.vin || 'Not provided'}
       </p>
 
       <h2>Notes</h2>
 
-      <p>{vehicle.notes}</p>
+      <p>{vehicle.notes || 'No notes recorded.'}</p>
 
       <PDFReport vehicle={vehicle} />
 
-      <EditVehicle vehicle={vehicle} />
+      <EditVehicle
+        vehicle={vehicle}
+        onVehicleUpdated={onVehicleUpdated}
+      />
 
       <PhotoUpload vehicle={vehicle} />
 

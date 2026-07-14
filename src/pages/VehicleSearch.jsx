@@ -126,9 +126,20 @@ export default function VehicleSearch({ backToDashboard }) {
           </button>
 
           <VehicleProfile
-            vehicle={selectedVehicle}
-            onVehicleDeleted={handleVehicleDeleted}
-          />
+  vehicle={selectedVehicle}
+  onVehicleDeleted={handleVehicleDeleted}
+  onVehicleUpdated={(updatedVehicle) => {
+    setSelectedVehicle(updatedVehicle)
+
+    setVehicles((currentVehicles) =>
+      currentVehicles.map((vehicle) =>
+        vehicle.registration === updatedVehicle.registration
+          ? updatedVehicle
+          : vehicle
+      )
+    )
+  }}
+/>
         </div>
       ) : (
         <>
