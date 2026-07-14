@@ -13,48 +13,30 @@ export default function ServiceHistory({
     useState(null)
 
   useEffect(() => {
-    loadVisits()
-  }, [registration])
+    async function loadVisits() {
+      setLoading(true)
 
-  useEffect(() => {
-    if (!newVisit) {
-      return
-    }
+      const { data, error } = await supabase
+        .from('service_visits')
+        .select('*')
+        .eq('registration', registration)
+        .order('service_date', { ascending: false })
+        .order('id', { ascending: false })
 
-    setVisits((currentVisits) => {
-      const alreadyExists = currentVisits.some(
-        (visit) => visit.id === newVisit.id
-      )
-
-      if (alreadyExists) {
-        return currentVisits
+      if (error) {
+        alert(
+          `Unable to load service history: ${error.message}`
+        )
+        setLoading(false)
+        return
       }
 
-      return [newVisit, ...currentVisits]
-    })
-  }, [newVisit])
-
-  async function loadVisits() {
-    setLoading(true)
-
-    const { data, error } = await supabase
-      .from('service_visits')
-      .select('*')
-      .eq('registration', registration)
-      .order('service_date', { ascending: false })
-      .order('id', { ascending: false })
-
-    setLoading(false)
-
-    if (error) {
-      alert(
-        `Unable to load service history: ${error.message}`
-      )
-      return
+      setVisits(data || [])
+      setLoading(false)
     }
 
-    setVisits(data || [])
-  }
+    loadVisits()
+  }, [registration, newVisit])
 
   async function deleteVisit(visit) {
     const confirmed = window.confirm(
@@ -163,12 +145,6 @@ export default function ServiceHistory({
                   )
                 }
                 disabled={deletingVisitId === visit.id}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  border: '1px solid #ccc',
-                  cursor: 'pointer',
-                }}
               >
                 {editingVisit === visit.id
                   ? 'Close Editor'
@@ -199,6 +175,7 @@ export default function ServiceHistory({
 
             {editingVisit === visit.id && (
               <EditServiceVisit
+                key={visit.id}
                 visit={visit}
                 onSaved={(updatedVisit) => {
                   setVisits((currentVisits) =>
@@ -211,9 +188,9 @@ export default function ServiceHistory({
 
                   setEditingVisit(null)
                 }}
-                onCancel={() => {
+                onCancel={() =>
                   setEditingVisit(null)
-                }}
+                }
               />
             )}
           </div>

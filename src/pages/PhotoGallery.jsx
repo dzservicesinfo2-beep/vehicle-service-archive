@@ -9,55 +9,37 @@ export default function PhotoGallery({
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadPhotos()
-  }, [vehicle.registration])
+    async function loadPhotos() {
+      setLoading(true)
 
-  useEffect(() => {
-    if (!newPhoto) {
-      return
-    }
+      const { data, error } = await supabase.storage
+        .from('vehicle-photos')
+        .list('', {
+          limit: 1000,
+          sortBy: {
+            column: 'created_at',
+            order: 'desc',
+          },
+        })
 
-    setPhotos((currentPhotos) => {
-      const alreadyExists = currentPhotos.some(
-        (photo) => photo.name === newPhoto.name
-      )
-
-      if (alreadyExists) {
-        return currentPhotos
+      if (error) {
+        alert(`Unable to load photos: ${error.message}`)
+        setLoading(false)
+        return
       }
 
-      return [newPhoto, ...currentPhotos]
-    })
-  }, [newPhoto])
+      const prefix = `${vehicle.registration}-`
 
-  async function loadPhotos() {
-    setLoading(true)
+      const vehiclePhotos = (data || []).filter((photo) =>
+        photo.name.startsWith(prefix)
+      )
 
-    const { data, error } = await supabase.storage
-      .from('vehicle-photos')
-      .list('', {
-        limit: 1000,
-        sortBy: {
-          column: 'created_at',
-          order: 'desc',
-        },
-      })
-
-    setLoading(false)
-
-    if (error) {
-      alert(`Unable to load photos: ${error.message}`)
-      return
+      setPhotos(vehiclePhotos)
+      setLoading(false)
     }
 
-    const prefix = `${vehicle.registration}-`
-
-    const vehiclePhotos = (data || []).filter((photo) =>
-      photo.name.startsWith(prefix)
-    )
-
-    setPhotos(vehiclePhotos)
-  }
+    loadPhotos()
+  }, [vehicle.registration, newPhoto])
 
   return (
     <div>
@@ -88,9 +70,6 @@ export default function PhotoGallery({
                 href={data.publicUrl}
                 target="_blank"
                 rel="noreferrer"
-                style={{
-                  display: 'inline-block',
-                }}
               >
                 <img
                   src={data.publicUrl}

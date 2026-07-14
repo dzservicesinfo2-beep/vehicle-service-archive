@@ -11,63 +11,62 @@ export default function Dashboard({
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadStats()
-  }, [])
+    async function loadStats() {
+      setLoading(true)
 
-  async function loadStats() {
-    setLoading(true)
+      const {
+        count: vehicleTotal,
+        error: vehicleError,
+      } = await supabase
+        .from('vehicles')
+        .select('*', {
+          count: 'exact',
+          head: true,
+        })
 
-    const {
-      count: vehicleTotal,
-      error: vehicleError,
-    } = await supabase
-      .from('vehicles')
-      .select('*', {
-        count: 'exact',
-        head: true,
-      })
+      const {
+        data: customerRows,
+        error: customerError,
+      } = await supabase
+        .from('vehicles')
+        .select('customer_name')
 
-    const {
-      data: customerRows,
-      error: customerError,
-    } = await supabase
-      .from('vehicles')
-      .select('customer_name')
+      const {
+        count: serviceTotal,
+        error: serviceError,
+      } = await supabase
+        .from('service_visits')
+        .select('*', {
+          count: 'exact',
+          head: true,
+        })
 
-    const {
-      count: serviceTotal,
-      error: serviceError,
-    } = await supabase
-      .from('service_visits')
-      .select('*', {
-        count: 'exact',
-        head: true,
-      })
+      if (vehicleError || customerError || serviceError) {
+        alert(
+          vehicleError?.message ||
+            customerError?.message ||
+            serviceError?.message
+        )
+        setLoading(false)
+        return
+      }
 
-    if (vehicleError || customerError || serviceError) {
-      alert(
-        vehicleError?.message ||
-          customerError?.message ||
-          serviceError?.message
+      const uniqueCustomers = new Set(
+        (customerRows || [])
+          .map((vehicle) =>
+            vehicle.customer_name?.trim().toLowerCase()
+          )
+          .filter(Boolean)
       )
 
+      setVehicleCount(vehicleTotal || 0)
+      setCustomerCount(uniqueCustomers.size)
+      setServiceCount(serviceTotal || 0)
       setLoading(false)
-      return
     }
 
-    const uniqueCustomers = new Set(
-      (customerRows || [])
-        .map((vehicle) =>
-          vehicle.customer_name?.trim().toLowerCase()
-        )
-        .filter(Boolean)
-    )
-
-    setVehicleCount(vehicleTotal || 0)
-    setCustomerCount(uniqueCustomers.size)
-    setServiceCount(serviceTotal || 0)
-    setLoading(false)
-  }
+    loadStats()
+  }, [])
 
   async function handleLogout() {
     const { error } = await supabase.auth.signOut()
@@ -95,7 +94,6 @@ export default function Dashboard({
             position: 'absolute',
             left: '50%',
             transform: 'translateX(-50%)',
-            textAlign: 'center',
             fontSize: '52px',
             whiteSpace: 'nowrap',
           }}
@@ -169,24 +167,20 @@ export default function Dashboard({
         }}
       >
         <button
-          type="button"
           onClick={openVehicleSearch}
           style={{
             padding: '12px 24px',
             fontSize: '16px',
-            cursor: 'pointer',
           }}
         >
           Open Vehicle Search
         </button>
 
         <button
-          type="button"
           onClick={openNewVehicle}
           style={{
             padding: '12px 24px',
             fontSize: '16px',
-            cursor: 'pointer',
           }}
         >
           Add New Vehicle

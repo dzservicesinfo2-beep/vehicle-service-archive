@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function EditServiceVisit({
@@ -6,21 +6,18 @@ export default function EditServiceVisit({
   onSaved,
   onCancel,
 }) {
-  const [entryReport, setEntryReport] = useState('')
-  const [repairsReport, setRepairsReport] = useState('')
-  const [repairParts, setRepairParts] = useState('')
+  const [entryReport, setEntryReport] = useState(
+    visit.entry_report || ''
+  )
+  const [repairsReport, setRepairsReport] = useState(
+    visit.repairs_report || ''
+  )
+  const [repairParts, setRepairParts] = useState(
+    visit.repair_parts || ''
+  )
   const [completionSummary, setCompletionSummary] =
-    useState('')
+    useState(visit.completion_summary || '')
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    setEntryReport(visit.entry_report || '')
-    setRepairsReport(visit.repairs_report || '')
-    setRepairParts(visit.repair_parts || '')
-    setCompletionSummary(
-      visit.completion_summary || ''
-    )
-  }, [visit])
 
   async function saveVisit(event) {
     event.preventDefault()

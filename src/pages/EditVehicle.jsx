@@ -1,30 +1,35 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function EditVehicle({
   vehicle,
   onVehicleUpdated,
 }) {
-  const [customerName, setCustomerName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [notes, setNotes] = useState('')
-  const [make, setMake] = useState('')
-  const [model, setModel] = useState('')
-  const [year, setYear] = useState('')
-  const [vin, setVin] = useState('')
+  const [customerName, setCustomerName] = useState(
+    vehicle.customer_name || ''
+  )
+  const [phone, setPhone] = useState(
+    vehicle.phone || ''
+  )
+  const [email, setEmail] = useState(
+    vehicle.email || ''
+  )
+  const [notes, setNotes] = useState(
+    vehicle.notes || ''
+  )
+  const [make, setMake] = useState(
+    vehicle.make || ''
+  )
+  const [model, setModel] = useState(
+    vehicle.model || ''
+  )
+  const [year, setYear] = useState(
+    vehicle.year || ''
+  )
+  const [vin, setVin] = useState(
+    vehicle.vin || ''
+  )
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    setCustomerName(vehicle.customer_name || '')
-    setPhone(vehicle.phone || '')
-    setEmail(vehicle.email || '')
-    setNotes(vehicle.notes || '')
-    setMake(vehicle.make || '')
-    setModel(vehicle.model || '')
-    setYear(vehicle.year || '')
-    setVin(vehicle.vin || '')
-  }, [vehicle])
 
   async function saveVehicle(event) {
     event.preventDefault()
@@ -61,11 +66,13 @@ export default function EditVehicle({
       return
     }
 
-    alert(`Vehicle ${vehicle.registration} updated successfully.`)
-
     if (onVehicleUpdated) {
       onVehicleUpdated(data)
     }
+
+    alert(
+      `Vehicle ${vehicle.registration} updated successfully.`
+    )
   }
 
   const inputStyle = {
@@ -98,7 +105,6 @@ export default function EditVehicle({
 
           <input
             type="text"
-            placeholder="Customer Name"
             value={customerName}
             onChange={(event) =>
               setCustomerName(event.target.value)
@@ -117,7 +123,6 @@ export default function EditVehicle({
 
           <input
             type="text"
-            placeholder="Phone"
             value={phone}
             onChange={(event) =>
               setPhone(event.target.value)
@@ -135,7 +140,6 @@ export default function EditVehicle({
 
           <input
             type="email"
-            placeholder="Email"
             value={email}
             onChange={(event) =>
               setEmail(event.target.value)
@@ -153,7 +157,6 @@ export default function EditVehicle({
 
           <input
             type="text"
-            placeholder="Make"
             value={make}
             onChange={(event) =>
               setMake(event.target.value)
@@ -171,7 +174,6 @@ export default function EditVehicle({
 
           <input
             type="text"
-            placeholder="Model"
             value={model}
             onChange={(event) =>
               setModel(event.target.value)
@@ -189,7 +191,6 @@ export default function EditVehicle({
 
           <input
             type="number"
-            placeholder="Year"
             value={year}
             onChange={(event) =>
               setYear(event.target.value)
@@ -209,7 +210,6 @@ export default function EditVehicle({
 
           <input
             type="text"
-            placeholder="VIN"
             value={vin}
             onChange={(event) =>
               setVin(event.target.value)
@@ -226,7 +226,6 @@ export default function EditVehicle({
           <br />
 
           <textarea
-            placeholder="Notes"
             value={notes}
             onChange={(event) =>
               setNotes(event.target.value)
