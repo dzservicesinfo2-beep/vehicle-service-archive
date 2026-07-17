@@ -8,72 +8,88 @@ export default function Dashboard({
   const [vehicleCount, setVehicleCount] = useState(0)
   const [customerCount, setCustomerCount] = useState(0)
   const [serviceCount, setServiceCount] = useState(0)
+  const [reminders, setReminders] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadStats() {
-      setLoading(true)
+    async function loadDashboard() {
+      const [
+        vehiclesResult,
+        customersResult,
+        servicesResult,
+        remindersResult,
+      ] = await Promise.all([
+        supabase
+          .from('vehicles')
+          .select('*', {
+            count: 'exact',
+            head: true,
+          }),
 
-      const {
-        count: vehicleTotal,
-        error: vehicleError,
-      } = await supabase
-        .from('vehicles')
-        .select('*', {
-          count: 'exact',
-          head: true,
-        })
+        supabase
+          .from('vehicles')
+          .select('customer_name'),
 
-      const {
-        data: customerRows,
-        error: customerError,
-      } = await supabase
-        .from('vehicles')
-        .select('customer_name')
+        supabase
+          .from('service_visits')
+          .select('*', {
+            count: 'exact',
+            head: true,
+          }),
 
-      const {
-        count: serviceTotal,
-        error: serviceError,
-      } = await supabase
-        .from('service_visits')
-        .select('*', {
-          count: 'exact',
-          head: true,
-        })
-
-      if (vehicleError || customerError || serviceError) {
-        alert(
-          vehicleError?.message ||
-            customerError?.message ||
-            serviceError?.message
-        )
-        setLoading(false)
-        return
-      }
+        supabase
+          .from('service_reminders')
+          .select('*')
+          .eq('status', 'Open')
+          .order('due_date', {
+            ascending: true,
+            nullsFirst: false,
+          }),
+      ])
 
       const uniqueCustomers = new Set(
-        (customerRows || [])
+        (customersResult.data || [])
           .map((vehicle) =>
-            vehicle.customer_name?.trim().toLowerCase()
+            vehicle.customer_name
+              ?.trim()
+              .toLowerCase()
           )
           .filter(Boolean)
       )
 
-      setVehicleCount(vehicleTotal || 0)
+      setVehicleCount(vehiclesResult.count || 0)
       setCustomerCount(uniqueCustomers.size)
-      setServiceCount(serviceTotal || 0)
+      setServiceCount(servicesResult.count || 0)
+      setReminders(remindersResult.data || [])
       setLoading(false)
     }
 
-    loadStats()
+    loadDashboard()
   }, [])
 
-  async function handleLogout() {
-    const { error } = await supabase.auth.signOut()
+  async function completeReminder(reminderId) {
+    const { error } = await supabase
+      .from('service_reminders')
+      .update({
+        status: 'Completed',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', reminderId)
 
     if (error) {
       alert(error.message)
+      return
     }
+
+    setReminders((currentReminders) =>
+      currentReminders.filter(
+        (reminder) => reminder.id !== reminderId
+      )
+    )
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
   }
 
   return (
@@ -81,30 +97,13 @@ export default function Dashboard({
       <div
         style={{
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          position: 'relative',
-          minHeight: '70px',
-          marginBottom: '40px',
         }}
       >
-        <h1
-          style={{
-            margin: 0,
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            fontSize: '52px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Vehicle Service Archive
-        </h1>
+        <h1>Vehicle Service Archive</h1>
 
-        <button
-          type="button"
-          onClick={handleLogout}
-        >
+        <button onClick={handleLogout}>
           Logout
         </button>
       </div>
@@ -112,80 +111,92 @@ export default function Dashboard({
       <div
         style={{
           display: 'flex',
-          justifyContent: 'center',
-          gap: '25px',
+          gap: '20px',
           flexWrap: 'wrap',
-          marginBottom: '40px',
+          margin: '30px 0',
         }}
       >
-        <div
-          style={{
-            width: '250px',
-            padding: '20px',
-            border: '1px solid #ccc',
-            borderRadius: '10px',
-            textAlign: 'center',
-          }}
-        >
+        <div>
           <h2>Total Vehicles</h2>
           <h1>{loading ? '...' : vehicleCount}</h1>
         </div>
 
-        <div
-          style={{
-            width: '250px',
-            padding: '20px',
-            border: '1px solid #ccc',
-            borderRadius: '10px',
-            textAlign: 'center',
-          }}
-        >
+        <div>
           <h2>Total Customers</h2>
           <h1>{loading ? '...' : customerCount}</h1>
         </div>
 
-        <div
-          style={{
-            width: '250px',
-            padding: '20px',
-            border: '1px solid #ccc',
-            borderRadius: '10px',
-            textAlign: 'center',
-          }}
-        >
+        <div>
           <h2>Total Service Visits</h2>
           <h1>{loading ? '...' : serviceCount}</h1>
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '15px',
-          flexWrap: 'wrap',
-        }}
-      >
-        <button
-          onClick={openVehicleSearch}
-          style={{
-            padding: '12px 24px',
-            fontSize: '16px',
-          }}
-        >
-          Open Vehicle Search
-        </button>
+      <button onClick={openVehicleSearch}>
+        Open Vehicle Search
+      </button>
 
-        <button
-          onClick={openNewVehicle}
-          style={{
-            padding: '12px 24px',
-            fontSize: '16px',
-          }}
-        >
-          Add New Vehicle
-        </button>
-      </div>
+      <button
+        onClick={openNewVehicle}
+        style={{ marginLeft: '10px' }}
+      >
+        Add New Vehicle
+      </button>
+
+      <hr />
+
+      <h2>Internal Service Reminders</h2>
+
+      {reminders.length === 0 ? (
+        <p>No open service reminders.</p>
+      ) : (
+        reminders.map((reminder) => {
+          const overdue =
+            reminder.due_date &&
+            new Date(reminder.due_date) <
+              new Date(
+                new Date().toISOString().split('T')[0]
+              )
+
+          return (
+            <div
+              key={reminder.id}
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                marginBottom: '12px',
+              }}
+            >
+              <h3>{reminder.registration}</h3>
+
+              <p>
+                Due date:{' '}
+                {reminder.due_date || 'Not set'}
+              </p>
+
+              <p>
+                Due mileage:{' '}
+                {reminder.due_mileage || 'Not set'}
+              </p>
+
+              {overdue && (
+                <p>
+                  <strong>OVERDUE</strong>
+                </p>
+              )}
+
+              <button
+                onClick={() =>
+                  completeReminder(reminder.id)
+                }
+              >
+                Mark Complete
+              </button>
+            </div>
+          )
+        })
+      )}
     </div>
   )
 }

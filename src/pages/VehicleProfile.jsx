@@ -6,6 +6,7 @@ import NewServiceVisit from './NewServiceVisit'
 import PhotoUpload from './PhotoUpload'
 import PDFReport from './PDFReport'
 import DeleteVehicle from './DeleteVehicle'
+import VehicleTimeline from './VehicleTimeline'
 
 export default function VehicleProfile({
   vehicle,
@@ -94,6 +95,9 @@ export default function VehicleProfile({
         registration={vehicle.registration}
         newVisit={newVisit}
       />
+      <VehicleTimeline
+  registration={vehicle.registration}
+/>
 
       <DeleteVehicle
         vehicle={vehicle}

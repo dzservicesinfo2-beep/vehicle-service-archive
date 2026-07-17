@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import EditServiceVisit from './EditServiceVisit'
+import ServiceVisitFiles from './ServiceVisitFiles'
 
 export default function ServiceHistory({
   registration,
   newVisit,
 }) {
   const [visits, setVisits] = useState([])
+  const [partsByVisit, setPartsByVisit] = useState({})
   const [editingVisit, setEditingVisit] = useState(null)
   const [loading, setLoading] = useState(true)
   const [deletingVisitId, setDeletingVisitId] =
@@ -31,7 +33,33 @@ export default function ServiceHistory({
         return
       }
 
+      const visitIds = (data || []).map(
+        (visit) => visit.id
+      )
+
+      let groupedParts = {}
+
+      if (visitIds.length > 0) {
+        const { data: parts } = await supabase
+          .from('service_parts')
+          .select('*')
+          .in('service_visit_id', visitIds)
+          .order('created_at', { ascending: true })
+
+        groupedParts = (parts || []).reduce(
+          (groups, part) => ({
+            ...groups,
+            [part.service_visit_id]: [
+              ...(groups[part.service_visit_id] || []),
+              part,
+            ],
+          }),
+          {}
+        )
+      }
+
       setVisits(data || [])
+      setPartsByVisit(groupedParts)
       setLoading(false)
     }
 
@@ -40,7 +68,7 @@ export default function ServiceHistory({
 
   async function deleteVisit(visit) {
     const confirmed = window.confirm(
-      `Delete the service visit dated ${visit.service_date}? This cannot be undone.`
+      `Delete the service visit dated ${visit.service_date}?`
     )
 
     if (!confirmed) {
@@ -68,133 +96,184 @@ export default function ServiceHistory({
         (currentVisit) => currentVisit.id !== visit.id
       )
     )
-
-    if (editingVisit === visit.id) {
-      setEditingVisit(null)
-    }
-
-    alert('Service visit deleted successfully.')
   }
 
   return (
     <div>
-      <h2 style={{ marginTop: '20px' }}>
-        Service History
-      </h2>
+      <h2>Service History</h2>
 
       {loading && <p>Loading service history...</p>}
 
-      {!loading && visits.length === 0 && (
-        <p>No service visits yet.</p>
-      )}
-
       {!loading &&
-        visits.map((visit) => (
-          <div
-            key={visit.id}
-            style={{
-              border: '1px solid #ddd',
-              padding: '20px',
-              marginBottom: '20px',
-              borderRadius: '10px',
-              backgroundColor: '#fafafa',
-            }}
-          >
-            <h3>
-              Service Date: {visit.service_date}
-            </h3>
+        visits.map((visit) => {
+          const visitParts =
+            partsByVisit[visit.id] || []
 
-            <p>
-              <strong>Entry Report:</strong>
-            </p>
-
-            <p>
-              {visit.entry_report || 'Not recorded'}
-            </p>
-
-            <p>
-              <strong>Repairs:</strong>{' '}
-              {visit.repairs_report || 'Not recorded'}
-            </p>
-
-            <p>
-              <strong>Parts:</strong>{' '}
-              {visit.repair_parts || 'Not recorded'}
-            </p>
-
-            <p>
-              <strong>Summary:</strong>{' '}
-              {visit.completion_summary || 'Not recorded'}
-            </p>
-
+          return (
             <div
+              key={visit.id}
               style={{
-                display: 'flex',
-                gap: '10px',
-                marginTop: '15px',
-                flexWrap: 'wrap',
+                border: '1px solid #ddd',
+                padding: '20px',
+                marginBottom: '20px',
+                borderRadius: '10px',
               }}
             >
-              <button
-                type="button"
-                onClick={() =>
-                  setEditingVisit(
-                    editingVisit === visit.id
-                      ? null
-                      : visit.id
-                  )
-                }
-                disabled={deletingVisitId === visit.id}
-              >
-                {editingVisit === visit.id
-                  ? 'Close Editor'
-                  : 'Edit Visit'}
-              </button>
+              <h3>{visit.service_date}</h3>
 
-              <button
-                type="button"
-                onClick={() => deleteVisit(visit)}
-                disabled={deletingVisitId === visit.id}
-                style={{
-                  backgroundColor: '#b42318',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 14px',
-                  borderRadius: '6px',
-                  cursor:
-                    deletingVisitId === visit.id
-                      ? 'not-allowed'
-                      : 'pointer',
-                }}
-              >
-                {deletingVisitId === visit.id
-                  ? 'Deleting...'
-                  : 'Delete Visit'}
-              </button>
-            </div>
+              <p>
+                <strong>Mileage:</strong>{' '}
+                {visit.mileage ?? 'Not recorded'}
+              </p>
 
-            {editingVisit === visit.id && (
-              <EditServiceVisit
-                key={visit.id}
-                visit={visit}
-                onSaved={(updatedVisit) => {
-                  setVisits((currentVisits) =>
-                    currentVisits.map((currentVisit) =>
-                      currentVisit.id === updatedVisit.id
-                        ? updatedVisit
-                        : currentVisit
-                    )
-                  )
+              <p>
+                <strong>Technician:</strong>{' '}
+                {visit.technician_name || 'Not recorded'}
+              </p>
 
-                  setEditingVisit(null)
-                }}
-                onCancel={() =>
-                  setEditingVisit(null)
-                }
+              <p>
+                <strong>Status:</strong>{' '}
+                {visit.job_status || 'Not recorded'}
+              </p>
+
+              <p>
+                <strong>Entry Report:</strong>
+              </p>
+              <p>{visit.entry_report || 'Not recorded'}</p>
+
+              <p>
+                <strong>Repairs:</strong>
+              </p>
+              <p>
+                {visit.repairs_report || 'Not recorded'}
+              </p>
+
+              <p>
+                <strong>Summary:</strong>
+              </p>
+              <p>
+                {visit.completion_summary ||
+                  'Not recorded'}
+              </p>
+
+              <h4>Parts Used</h4>
+
+              {visitParts.length > 0 ? (
+                <div style={{ overflowX: 'auto' }}>
+                  <table
+                    style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>
+                          Part
+                        </th>
+                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>
+                          Part Number
+                        </th>
+                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>
+                          Quantity
+                        </th>
+                        <th style={{ border: '1px solid #ddd', padding: '8px' }}>
+                          Notes
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {visitParts.map((part) => (
+                        <tr key={part.id}>
+                          <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                            {part.part_name}
+                          </td>
+                          <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                            {part.part_number || '—'}
+                          </td>
+                          <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                            {part.quantity}
+                          </td>
+                          <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                            {part.notes || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>
+                  {visit.repair_parts ||
+                    'No structured parts recorded.'}
+                </p>
+              )}
+
+              <ServiceVisitFiles
+                serviceVisitId={visit.id}
               />
-            )}
-          </div>
-        ))}
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '10px',
+                  marginTop: '20px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingVisit(
+                      editingVisit === visit.id
+                        ? null
+                        : visit.id
+                    )
+                  }
+                >
+                  {editingVisit === visit.id
+                    ? 'Close Editor'
+                    : 'Edit Visit'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => deleteVisit(visit)}
+                  disabled={
+                    deletingVisitId === visit.id
+                  }
+                >
+                  {deletingVisitId === visit.id
+                    ? 'Deleting...'
+                    : 'Delete Visit'}
+                </button>
+              </div>
+
+              {editingVisit === visit.id && (
+                <EditServiceVisit
+                  key={visit.id}
+                  visit={visit}
+                  onSaved={(updatedVisit) => {
+                    setVisits((currentVisits) =>
+                      currentVisits.map(
+                        (currentVisit) =>
+                          currentVisit.id ===
+                          updatedVisit.id
+                            ? updatedVisit
+                            : currentVisit
+                      )
+                    )
+
+                    setEditingVisit(null)
+                  }}
+                  onCancel={() =>
+                    setEditingVisit(null)
+                  }
+                />
+              )}
+            </div>
+          )
+        })}
     </div>
   )
 }
