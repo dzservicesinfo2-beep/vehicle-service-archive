@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import './App.css'
+
 import Login from './pages/Login'
 import VehicleSearch from './pages/VehicleSearch'
 import CustomerDashboard from './pages/CustomerDashboard'
@@ -9,25 +11,13 @@ import NewVehicle from './pages/NewVehicle'
 function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [loadingProfile, setLoadingProfile] = useState(true)
-  const [employeePage, setEmployeePage] = useState('dashboard')
+  const [loadingProfile, setLoadingProfile] =
+    useState(true)
+
+  const [employeePage, setEmployeePage] =
+    useState('dashboard')
 
   useEffect(() => {
-    async function loadSessionAndProfile() {
-      const { data } = await supabase.auth.getSession()
-      const currentSession = data.session
-
-      setSession(currentSession)
-
-      if (!currentSession) {
-        setProfile(null)
-        setLoadingProfile(false)
-        return
-      }
-
-      await loadProfile(currentSession.user.id)
-    }
-
     async function loadProfile(authUserId) {
       setLoadingProfile(true)
 
@@ -46,6 +36,23 @@ function App() {
 
       setProfile(data)
       setLoadingProfile(false)
+    }
+
+    async function loadSessionAndProfile() {
+      const { data } =
+        await supabase.auth.getSession()
+
+      const currentSession = data.session
+
+      setSession(currentSession)
+
+      if (!currentSession) {
+        setProfile(null)
+        setLoadingProfile(false)
+        return
+      }
+
+      await loadProfile(currentSession.user.id)
     }
 
     loadSessionAndProfile()
@@ -67,7 +74,9 @@ function App() {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   if (!session) {
@@ -76,30 +85,35 @@ function App() {
 
   if (loadingProfile) {
     return (
-      <div style={{ padding: '40px' }}>
-        <p>Loading account...</p>
-      </div>
+      <main className="login-page">
+        <div className="login-card">
+          <p>Loading account...</p>
+        </div>
+      </main>
     )
   }
 
   if (!profile) {
     return (
-      <div style={{ padding: '40px' }}>
-        <h1>Access Denied</h1>
+      <main className="login-page">
+        <div className="login-card">
+          <h1>Access Denied</h1>
 
-        <p>
-          This account does not have an active Vehicle Service Archive profile.
-        </p>
+          <p>
+            This account does not have an active Vehicle
+            Service Archive profile.
+          </p>
 
-        <button
-          type="button"
-          onClick={async () => {
-            await supabase.auth.signOut()
-          }}
-        >
-          Logout
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut()
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </main>
     )
   }
 
@@ -112,20 +126,22 @@ function App() {
     profile.role !== 'employee'
   ) {
     return (
-      <div style={{ padding: '40px' }}>
-        <h1>Access Denied</h1>
+      <main className="login-page">
+        <div className="login-card">
+          <h1>Access Denied</h1>
 
-        <p>This account role is not permitted.</p>
+          <p>This account role is not permitted.</p>
 
-        <button
-          type="button"
-          onClick={async () => {
-            await supabase.auth.signOut()
-          }}
-        >
-          Logout
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut()
+            }}
+          >
+            Logout
+          </button>
+        </div>
+      </main>
     )
   }
 

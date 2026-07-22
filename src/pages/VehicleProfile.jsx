@@ -15,94 +15,328 @@ export default function VehicleProfile({
 }) {
   const [newVisit, setNewVisit] = useState(null)
   const [newPhoto, setNewPhoto] = useState(null)
+  const [showEditVehicle, setShowEditVehicle] =
+    useState(false)
+  const [showNewServiceVisit, setShowNewServiceVisit] =
+    useState(false)
 
   if (!vehicle) {
     return null
   }
 
+  const vehicleDescription = [
+    vehicle.year,
+    vehicle.make,
+    vehicle.model,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  function handleVehicleUpdated(updatedVehicle) {
+    if (onVehicleUpdated) {
+      onVehicleUpdated(updatedVehicle)
+    }
+
+    setShowEditVehicle(false)
+  }
+
+  function handleVisitAdded(visit) {
+    setNewVisit(visit)
+    setShowNewServiceVisit(false)
+  }
+
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>{vehicle.registration}</h1>
+    <main className="vehicle-profile-page">
+      <div className="vehicle-profile-container">
+        <section className="vehicle-profile-hero">
+          <div className="vehicle-profile-hero-content">
+            <span className="vehicle-profile-label">
+              Vehicle Record
+            </span>
 
-      <h2>Customer Details</h2>
+            <h1>{vehicle.registration}</h1>
 
-      <p>
-        <strong>Customer:</strong>{' '}
-        {vehicle.customer_name || 'Not provided'}
-      </p>
+            <p>
+              {vehicleDescription ||
+                'Vehicle details not provided'}
+            </p>
+          </div>
 
-      <p>
-        <strong>Phone:</strong>{' '}
-        {vehicle.phone || 'Not provided'}
-      </p>
+          <div className="vehicle-profile-hero-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() =>
+                setShowEditVehicle(
+                  (currentValue) => !currentValue
+                )
+              }
+            >
+              {showEditVehicle
+                ? 'Close Edit Form'
+                : 'Edit Vehicle'}
+            </button>
 
-      <p>
-        <strong>Email:</strong>{' '}
-        {vehicle.email || 'Not provided'}
-      </p>
+            <PDFReport vehicle={vehicle} />
+          </div>
+        </section>
 
-      <h2>Vehicle Details</h2>
+        {showEditVehicle && (
+          <section className="vehicle-profile-panel">
+            <div className="vehicle-section-heading">
+              <div>
+                <span className="vehicle-section-eyebrow">
+                  Vehicle Management
+                </span>
 
-      <p>
-        <strong>Make:</strong>{' '}
-        {vehicle.make || 'Not provided'}
-      </p>
+                <h2>Edit Vehicle</h2>
 
-      <p>
-        <strong>Model:</strong>{' '}
-        {vehicle.model || 'Not provided'}
-      </p>
+                <p>
+                  Update the customer and vehicle record.
+                </p>
+              </div>
+            </div>
 
-      <p>
-        <strong>Year:</strong>{' '}
-        {vehicle.year || 'Not provided'}
-      </p>
+            <EditVehicle
+              vehicle={vehicle}
+              onVehicleUpdated={handleVehicleUpdated}
+            />
+          </section>
+        )}
 
-      <p>
-        <strong>VIN:</strong>{' '}
-        {vehicle.vin || 'Not provided'}
-      </p>
+        <section className="vehicle-summary-grid">
+          <article className="vehicle-summary-card">
+            <div className="vehicle-card-heading">
+              <div>
+                <span className="vehicle-section-eyebrow">
+                  Owner Information
+                </span>
 
-      <h2>Notes</h2>
+                <h2>Customer Details</h2>
+              </div>
+            </div>
 
-      <p>{vehicle.notes || 'No notes recorded.'}</p>
+            <dl className="vehicle-details-list">
+              <div className="vehicle-details-row">
+                <dt>Customer</dt>
 
-      <PDFReport vehicle={vehicle} />
+                <dd>
+                  {vehicle.customer_name ||
+                    'Not provided'}
+                </dd>
+              </div>
 
-      <EditVehicle
-        vehicle={vehicle}
-        onVehicleUpdated={onVehicleUpdated}
-      />
+              <div className="vehicle-details-row">
+                <dt>Phone</dt>
 
-      <PhotoUpload
-        vehicle={vehicle}
-        onPhotoUploaded={setNewPhoto}
-      />
+                <dd>
+                  {vehicle.phone || 'Not provided'}
+                </dd>
+              </div>
 
-      <PhotoGallery
-        vehicle={vehicle}
-        newPhoto={newPhoto}
-      />
+              <div className="vehicle-details-row">
+                <dt>Email</dt>
 
-      <hr />
+                <dd>
+                  {vehicle.email || 'Not provided'}
+                </dd>
+              </div>
+            </dl>
+          </article>
 
-      <NewServiceVisit
-        vehicle={vehicle}
-        onVisitAdded={setNewVisit}
-      />
+          <article className="vehicle-summary-card">
+            <div className="vehicle-card-heading">
+              <div>
+                <span className="vehicle-section-eyebrow">
+                  Vehicle Information
+                </span>
 
-      <ServiceHistory
-        registration={vehicle.registration}
-        newVisit={newVisit}
-      />
-      <VehicleTimeline
-  registration={vehicle.registration}
-/>
+                <h2>Vehicle Details</h2>
+              </div>
+            </div>
 
-      <DeleteVehicle
-        vehicle={vehicle}
-        onDeleted={onVehicleDeleted}
-      />
-    </div>
+            <dl className="vehicle-details-list">
+              <div className="vehicle-details-row">
+                <dt>Registration</dt>
+
+                <dd>{vehicle.registration}</dd>
+              </div>
+
+              <div className="vehicle-details-row">
+                <dt>Make</dt>
+
+                <dd>
+                  {vehicle.make || 'Not provided'}
+                </dd>
+              </div>
+
+              <div className="vehicle-details-row">
+                <dt>Model</dt>
+
+                <dd>
+                  {vehicle.model || 'Not provided'}
+                </dd>
+              </div>
+
+              <div className="vehicle-details-row">
+                <dt>Year</dt>
+
+                <dd>
+                  {vehicle.year || 'Not provided'}
+                </dd>
+              </div>
+
+              <div className="vehicle-details-row">
+                <dt>VIN</dt>
+
+                <dd>
+                  {vehicle.vin || 'Not provided'}
+                </dd>
+              </div>
+            </dl>
+          </article>
+        </section>
+
+        <section className="vehicle-profile-panel">
+          <div className="vehicle-section-heading">
+            <div>
+              <span className="vehicle-section-eyebrow">
+                Internal Information
+              </span>
+
+              <h2>Vehicle Notes</h2>
+            </div>
+          </div>
+
+          <div className="vehicle-notes-content">
+            <p>
+              {vehicle.notes || 'No notes recorded.'}
+            </p>
+          </div>
+        </section>
+
+        <section className="vehicle-profile-panel">
+          <div className="vehicle-section-heading vehicle-section-heading-actions">
+            <div>
+              <span className="vehicle-section-eyebrow">
+                Workshop Records
+              </span>
+
+              <h2>Service Records</h2>
+
+              <p>
+                Add a new visit and review the complete
+                service history.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setShowNewServiceVisit(
+                  (currentValue) => !currentValue
+                )
+              }
+            >
+              {showNewServiceVisit
+                ? 'Close Service Form'
+                : 'Add Service Visit'}
+            </button>
+          </div>
+
+          {showNewServiceVisit && (
+            <div className="vehicle-profile-subsection">
+              <NewServiceVisit
+                vehicle={vehicle}
+                onVisitAdded={handleVisitAdded}
+              />
+            </div>
+          )}
+
+          <div className="vehicle-profile-subsection">
+            <ServiceHistory
+              registration={vehicle.registration}
+              newVisit={newVisit}
+            />
+          </div>
+        </section>
+
+        <section className="vehicle-profile-panel">
+          <div className="vehicle-section-heading">
+            <div>
+              <span className="vehicle-section-eyebrow">
+                Vehicle Files
+              </span>
+
+              <h2>Documents &amp; Photos</h2>
+
+              <p>
+                Upload and review documents, inspection
+                images and workshop photos.
+              </p>
+            </div>
+          </div>
+
+          <div className="vehicle-files-layout">
+            <div className="vehicle-upload-panel">
+              <PhotoUpload
+                vehicle={vehicle}
+                onPhotoUploaded={setNewPhoto}
+              />
+            </div>
+
+            <div className="vehicle-gallery-panel">
+              <PhotoGallery
+                vehicle={vehicle}
+                newPhoto={newPhoto}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="vehicle-profile-panel">
+          <div className="vehicle-section-heading">
+            <div>
+              <span className="vehicle-section-eyebrow">
+                Activity History
+              </span>
+
+              <h2>Vehicle Timeline</h2>
+
+              <p>
+                Review service visits, uploaded files and
+                recorded activity in date order.
+              </p>
+            </div>
+          </div>
+
+          <VehicleTimeline
+            registration={vehicle.registration}
+          />
+        </section>
+
+        <section className="vehicle-danger-panel">
+          <div className="vehicle-section-heading">
+            <div>
+              <span className="vehicle-section-eyebrow">
+                Permanent Action
+              </span>
+
+              <h2>Delete Vehicle</h2>
+
+              <p>
+                Permanently remove this vehicle and its
+                associated records.
+              </p>
+            </div>
+          </div>
+
+          <DeleteVehicle
+            vehicle={vehicle}
+            onDeleted={onVehicleDeleted}
+          />
+        </section>
+      </div>
+    </main>
   )
 }

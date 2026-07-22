@@ -18,15 +18,26 @@ export default function NewServiceVisit({
   const [repairsReport, setRepairsReport] = useState('')
   const [completionSummary, setCompletionSummary] =
     useState('')
+
   const [mileage, setMileage] = useState('')
+  const [mileageUnit, setMileageUnit] = useState('KM')
+
   const [technicianName, setTechnicianName] = useState('')
   const [jobStatus, setJobStatus] = useState('Completed')
+
   const [nextServiceDueDate, setNextServiceDueDate] =
     useState('')
+
   const [
     nextServiceDueMileage,
     setNextServiceDueMileage,
   ] = useState('')
+
+  const [
+    nextServiceDueMileageUnit,
+    setNextServiceDueMileageUnit,
+  ] = useState('KM')
+
   const [parts, setParts] = useState([createEmptyPart()])
   const [saving, setSaving] = useState(false)
 
@@ -69,6 +80,8 @@ export default function NewServiceVisit({
       entryReport.trim() ||
       repairsReport.trim() ||
       completionSummary.trim() ||
+      mileage ||
+      technicianName.trim() ||
       parts.some((part) => part.part_name.trim())
 
     if (!hasContent) {
@@ -78,14 +91,17 @@ export default function NewServiceVisit({
 
     setSaving(true)
 
-    const legacyPartsText = parts
-      .filter((part) => part.part_name.trim())
+    const validParts = parts.filter((part) =>
+      part.part_name.trim()
+    )
+
+    const legacyPartsText = validParts
       .map((part) => {
-        const number = part.part_number.trim()
+        const partNumber = part.part_number.trim()
           ? ` (${part.part_number.trim()})`
           : ''
 
-        return `${part.quantity || 1} × ${part.part_name.trim()}${number}`
+        return `${part.quantity || 1} × ${part.part_name.trim()}${partNumber}`
       })
       .join(', ')
 
@@ -98,20 +114,29 @@ export default function NewServiceVisit({
             service_date: new Date()
               .toISOString()
               .split('T')[0],
+
             entry_report: entryReport.trim(),
             repairs_report: repairsReport.trim(),
             repair_parts: legacyPartsText,
             completion_summary:
               completionSummary.trim(),
+
             mileage: mileage ? Number(mileage) : null,
+            mileage_unit: mileageUnit,
+
             technician_name: technicianName.trim(),
             job_status: jobStatus,
+
             next_service_due_date:
               nextServiceDueDate || null,
+
             next_service_due_mileage:
               nextServiceDueMileage
                 ? Number(nextServiceDueMileage)
                 : null,
+
+            next_service_due_mileage_unit:
+              nextServiceDueMileageUnit,
           },
         ])
         .select()
@@ -119,15 +144,16 @@ export default function NewServiceVisit({
 
     if (visitError) {
       setSaving(false)
+
       alert(
         `Unable to save service visit: ${visitError.message}`
       )
+
       return
     }
 
-    const validParts = parts
-      .filter((part) => part.part_name.trim())
-      .map((part) => ({
+    if (validParts.length > 0) {
+      const structuredParts = validParts.map((part) => ({
         service_visit_id: visit.id,
         part_name: part.part_name.trim(),
         part_number: part.part_number.trim() || null,
@@ -135,16 +161,17 @@ export default function NewServiceVisit({
         notes: part.notes.trim() || null,
       }))
 
-    if (validParts.length > 0) {
       const { error: partsError } = await supabase
         .from('service_parts')
-        .insert(validParts)
+        .insert(structuredParts)
 
       if (partsError) {
         setSaving(false)
+
         alert(
-          `The visit was saved, but its parts table failed: ${partsError.message}`
+          `The service visit was saved, but its parts could not be saved: ${partsError.message}`
         )
+
         return
       }
     }
@@ -157,9 +184,14 @@ export default function NewServiceVisit({
             registration: vehicle.registration,
             source_service_visit_id: visit.id,
             due_date: nextServiceDueDate || null,
+
             due_mileage: nextServiceDueMileage
               ? Number(nextServiceDueMileage)
               : null,
+
+            due_mileage_unit:
+              nextServiceDueMileageUnit,
+
             reminder_type: 'Service',
             notes: completionSummary.trim() || null,
             status: 'Open',
@@ -168,9 +200,11 @@ export default function NewServiceVisit({
 
       if (reminderError) {
         setSaving(false)
+
         alert(
-          `The visit was saved, but its reminder failed: ${reminderError.message}`
+          `The service visit was saved, but its reminder could not be saved: ${reminderError.message}`
         )
+
         return
       }
     }
@@ -178,11 +212,17 @@ export default function NewServiceVisit({
     setEntryReport('')
     setRepairsReport('')
     setCompletionSummary('')
+
     setMileage('')
+    setMileageUnit('KM')
+
     setTechnicianName('')
     setJobStatus('Completed')
+
     setNextServiceDueDate('')
     setNextServiceDueMileage('')
+    setNextServiceDueMileageUnit('KM')
+
     setParts([createEmptyPart()])
     setSaving(false)
 
@@ -193,241 +233,381 @@ export default function NewServiceVisit({
     alert('Service visit saved successfully.')
   }
 
-  const inputStyle = {
-    width: '100%',
-    maxWidth: '900px',
-    padding: '12px',
-    fontSize: '16px',
-    boxSizing: 'border-box',
-  }
-
-  const textareaStyle = {
-    ...inputStyle,
-    minHeight: '180px',
-    resize: 'vertical',
-  }
-
   return (
-    <div>
-      <h2>Add Service Visit</h2>
+    <div className="service-form-container">
+      <div className="service-form-heading">
+        <div>
+          <h3>Add Service Visit</h3>
 
-      <form onSubmit={saveVisit}>
-        <textarea
-          placeholder="Entry Report"
-          value={entryReport}
-          onChange={(event) =>
-            setEntryReport(event.target.value)
-          }
-          style={textareaStyle}
-        />
+          <p>
+            Record the inspection, repairs, parts, mileage
+            and next-service information.
+          </p>
+        </div>
+      </div>
 
-        <br />
-        <br />
+      <form
+        className="service-form"
+        onSubmit={saveVisit}
+      >
+        <section className="service-form-section">
+          <div className="service-form-section-heading">
+            <h4>Service Reports</h4>
 
-        <textarea
-          placeholder="Repairs Report"
-          value={repairsReport}
-          onChange={(event) =>
-            setRepairsReport(event.target.value)
-          }
-          style={textareaStyle}
-        />
-
-        <br />
-        <br />
-
-        <textarea
-          placeholder="Completion Summary"
-          value={completionSummary}
-          onChange={(event) =>
-            setCompletionSummary(event.target.value)
-          }
-          style={textareaStyle}
-        />
-
-        <h3>Visit Details</h3>
-
-        <input
-          type="number"
-          placeholder="Vehicle Mileage"
-          value={mileage}
-          onChange={(event) =>
-            setMileage(event.target.value)
-          }
-          min="0"
-          style={inputStyle}
-        />
-
-        <br />
-        <br />
-
-        <input
-          type="text"
-          placeholder="Technician Name"
-          value={technicianName}
-          onChange={(event) =>
-            setTechnicianName(event.target.value)
-          }
-          style={inputStyle}
-        />
-
-        <br />
-        <br />
-
-        <select
-          value={jobStatus}
-          onChange={(event) =>
-            setJobStatus(event.target.value)
-          }
-          style={inputStyle}
-        >
-          <option>Booked In</option>
-          <option>Waiting for Inspection</option>
-          <option>Waiting for Parts</option>
-          <option>Work in Progress</option>
-          <option>Ready for Collection</option>
-          <option>Completed</option>
-        </select>
-
-        <h3>Parts Used</h3>
-
-        {parts.map((part, index) => (
-          <div
-            key={index}
-            style={{
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              padding: '15px',
-              marginBottom: '12px',
-              maxWidth: '900px',
-            }}
-          >
-            <input
-              type="text"
-              placeholder="Part Name"
-              value={part.part_name}
-              onChange={(event) =>
-                updatePart(
-                  index,
-                  'part_name',
-                  event.target.value
-                )
-              }
-              style={inputStyle}
-            />
-
-            <br />
-            <br />
-
-            <input
-              type="text"
-              placeholder="Part Number"
-              value={part.part_number}
-              onChange={(event) =>
-                updatePart(
-                  index,
-                  'part_number',
-                  event.target.value
-                )
-              }
-              style={inputStyle}
-            />
-
-            <br />
-            <br />
-
-            <input
-              type="number"
-              placeholder="Quantity"
-              value={part.quantity}
-              onChange={(event) =>
-                updatePart(
-                  index,
-                  'quantity',
-                  event.target.value
-                )
-              }
-              min="0.01"
-              step="0.01"
-              style={inputStyle}
-            />
-
-            <br />
-            <br />
-
-            <input
-              type="text"
-              placeholder="Part Notes"
-              value={part.notes}
-              onChange={(event) =>
-                updatePart(
-                  index,
-                  'notes',
-                  event.target.value
-                )
-              }
-              style={inputStyle}
-            />
-
-            <br />
-            <br />
-
-            <button
-              type="button"
-              onClick={() => removePartRow(index)}
-            >
-              Remove Part
-            </button>
+            <p>
+              Record the vehicle condition and completed
+              work.
+            </p>
           </div>
-        ))}
 
-        <button
-          type="button"
-          onClick={addPartRow}
-        >
-          Add Another Part
-        </button>
+          <div className="form-group">
+            <label htmlFor="entry-report">
+              Entry report
+            </label>
 
-        <h3>Internal Service Reminder</h3>
+            <textarea
+              id="entry-report"
+              placeholder="Vehicle condition, customer concerns and initial inspection"
+              value={entryReport}
+              onChange={(event) =>
+                setEntryReport(event.target.value)
+              }
+            />
+          </div>
 
-        <input
-          type="date"
-          value={nextServiceDueDate}
-          onChange={(event) =>
-            setNextServiceDueDate(event.target.value)
-          }
-          style={inputStyle}
-        />
+          <div className="form-group">
+            <label htmlFor="repairs-report">
+              Repairs report
+            </label>
 
-        <br />
-        <br />
+            <textarea
+              id="repairs-report"
+              placeholder="Repairs, checks and work carried out"
+              value={repairsReport}
+              onChange={(event) =>
+                setRepairsReport(event.target.value)
+              }
+            />
+          </div>
 
-        <input
-          type="number"
-          placeholder="Next Service Due Mileage"
-          value={nextServiceDueMileage}
-          onChange={(event) =>
-            setNextServiceDueMileage(event.target.value)
-          }
-          min="0"
-          style={inputStyle}
-        />
+          <div className="form-group">
+            <label htmlFor="completion-summary">
+              Completion summary
+            </label>
 
-        <br />
-        <br />
+            <textarea
+              id="completion-summary"
+              placeholder="Final summary and customer information"
+              value={completionSummary}
+              onChange={(event) =>
+                setCompletionSummary(event.target.value)
+              }
+            />
+          </div>
+        </section>
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            padding: '12px 20px',
-            fontSize: '16px',
-          }}
-        >
-          {saving
-            ? 'Saving Service Visit...'
-            : 'Save Service Visit'}
-        </button>
+        <section className="service-form-section">
+          <div className="service-form-section-heading">
+            <h4>Visit Details</h4>
+
+            <p>
+              Record the mileage, mileage unit, technician
+              and current job status.
+            </p>
+          </div>
+
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="service-mileage">
+                Vehicle mileage
+              </label>
+
+              <div className="mileage-input-row">
+                <input
+                  id="service-mileage"
+                  type="number"
+                  placeholder="Current mileage"
+                  min="0"
+                  value={mileage}
+                  onChange={(event) =>
+                    setMileage(event.target.value)
+                  }
+                />
+
+                <select
+                  aria-label="Vehicle mileage unit"
+                  value={mileageUnit}
+                  onChange={(event) =>
+                    setMileageUnit(event.target.value)
+                  }
+                >
+                  <option value="KM">KM</option>
+                  <option value="Miles">Miles</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="technician-name">
+                Technician name
+              </label>
+
+              <input
+                id="technician-name"
+                type="text"
+                placeholder="Technician"
+                value={technicianName}
+                onChange={(event) =>
+                  setTechnicianName(event.target.value)
+                }
+              />
+            </div>
+
+            <div className="form-group form-group-full">
+              <label htmlFor="job-status">
+                Job status
+              </label>
+
+              <select
+                id="job-status"
+                value={jobStatus}
+                onChange={(event) =>
+                  setJobStatus(event.target.value)
+                }
+              >
+                <option value="Booked In">
+                  Booked In
+                </option>
+
+                <option value="Waiting for Inspection">
+                  Waiting for Inspection
+                </option>
+
+                <option value="Waiting for Parts">
+                  Waiting for Parts
+                </option>
+
+                <option value="Work in Progress">
+                  Work in Progress
+                </option>
+
+                <option value="Ready for Collection">
+                  Ready for Collection
+                </option>
+
+                <option value="Completed">
+                  Completed
+                </option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section className="service-form-section">
+          <div className="service-form-section-heading">
+            <h4>Parts Used</h4>
+
+            <p>
+              Add every fitted or supplied part as a
+              separate entry.
+            </p>
+          </div>
+
+          <div className="parts-form-list">
+            {parts.map((part, index) => (
+              <div
+                key={index}
+                className="part-form-card"
+              >
+                <div className="part-form-card-heading">
+                  <h5>Part {index + 1}</h5>
+
+                  <button
+                    type="button"
+                    className="danger-outline-button"
+                    onClick={() => removePartRow(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+
+                <div className="parts-form-grid">
+                  <div className="form-group">
+                    <label
+                      htmlFor={`part-name-${index}`}
+                    >
+                      Part name
+                    </label>
+
+                    <input
+                      id={`part-name-${index}`}
+                      type="text"
+                      placeholder="Part name"
+                      value={part.part_name}
+                      onChange={(event) =>
+                        updatePart(
+                          index,
+                          'part_name',
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label
+                      htmlFor={`part-number-${index}`}
+                    >
+                      Part number
+                    </label>
+
+                    <input
+                      id={`part-number-${index}`}
+                      type="text"
+                      placeholder="Part number"
+                      value={part.part_number}
+                      onChange={(event) =>
+                        updatePart(
+                          index,
+                          'part_number',
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label
+                      htmlFor={`part-quantity-${index}`}
+                    >
+                      Quantity
+                    </label>
+
+                    <input
+                      id={`part-quantity-${index}`}
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={part.quantity}
+                      onChange={(event) =>
+                        updatePart(
+                          index,
+                          'quantity',
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label
+                      htmlFor={`part-notes-${index}`}
+                    >
+                      Notes
+                    </label>
+
+                    <input
+                      id={`part-notes-${index}`}
+                      type="text"
+                      placeholder="Optional notes"
+                      value={part.notes}
+                      onChange={(event) =>
+                        updatePart(
+                          index,
+                          'notes',
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={addPartRow}
+          >
+            Add Another Part
+          </button>
+        </section>
+
+        <section className="service-form-section">
+          <div className="service-form-section-heading">
+            <h4>Internal Service Reminder</h4>
+
+            <p>
+              Set the next service date, mileage, mileage
+              unit or both.
+            </p>
+          </div>
+
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="next-service-date">
+                Next service due date
+              </label>
+
+              <input
+                id="next-service-date"
+                type="date"
+                value={nextServiceDueDate}
+                onChange={(event) =>
+                  setNextServiceDueDate(
+                    event.target.value
+                  )
+                }
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="next-service-mileage">
+                Next service due mileage
+              </label>
+
+              <div className="mileage-input-row">
+                <input
+                  id="next-service-mileage"
+                  type="number"
+                  placeholder="Due mileage"
+                  min="0"
+                  value={nextServiceDueMileage}
+                  onChange={(event) =>
+                    setNextServiceDueMileage(
+                      event.target.value
+                    )
+                  }
+                />
+
+                <select
+                  aria-label="Next service mileage unit"
+                  value={nextServiceDueMileageUnit}
+                  onChange={(event) =>
+                    setNextServiceDueMileageUnit(
+                      event.target.value
+                    )
+                  }
+                >
+                  <option value="KM">KM</option>
+                  <option value="Miles">Miles</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="service-form-actions">
+          <button
+            type="submit"
+            disabled={saving}
+          >
+            {saving
+              ? 'Saving Service Visit...'
+              : 'Save Service Visit'}
+          </button>
+        </div>
       </form>
     </div>
   )

@@ -1,31 +1,80 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
+const FILE_CATEGORIES = [
+  'Before Repair',
+  'During Repair',
+  'After Repair',
+  'Damage Photo',
+  'Invoice',
+  'Receipt',
+  'CVRT Report',
+  'Diagnostic Report',
+  'Other Document',
+]
+
 export default function PhotoUpload({
   vehicle,
   onPhotoUploaded,
 }) {
   const [uploading, setUploading] = useState(false)
   const [category, setCategory] =
-    useState('Workshop Photo')
+    useState('Before Repair')
   const [description, setDescription] = useState('')
   const [serviceVisitId, setServiceVisitId] = useState('')
   const [visits, setVisits] = useState([])
+  const [selectedFileName, setSelectedFileName] =
+    useState('')
+
   const fileInputRef = useRef(null)
 
   useEffect(() => {
     async function loadVisits() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('service_visits')
         .select('id, service_date, completion_summary')
         .eq('registration', vehicle.registration)
         .order('service_date', { ascending: false })
+
+      if (error) {
+        console.error(
+          'Unable to load service visits:',
+          error
+        )
+
+        setVisits([])
+        return
+      }
 
       setVisits(data || [])
     }
 
     loadVisits()
   }, [vehicle.registration])
+
+  function formatVisitDate(dateValue) {
+    if (!dateValue) {
+      return 'Date not recorded'
+    }
+
+    return new Date(
+      `${dateValue}T00:00:00`
+    ).toLocaleDateString('en-IE', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  function resetForm() {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+
+    setDescription('')
+    setServiceVisitId('')
+    setSelectedFileName('')
+  }
 
   async function uploadFile(event) {
     const file = event.target.files?.[0]
@@ -34,7 +83,14 @@ export default function PhotoUpload({
       return
     }
 
+    setSelectedFileName(file.name)
     setUploading(true)
+
+    const safeRegistration =
+      vehicle.registration.replace(
+        /[^a-zA-Z0-9_-]/g,
+        '-'
+      )
 
     const safeOriginalName = file.name.replace(
       /[^a-zA-Z0-9._-]/g,
@@ -42,7 +98,7 @@ export default function PhotoUpload({
     )
 
     const storagePath =
-      `${vehicle.registration}-${Date.now()}-${safeOriginalName}`
+      `${safeRegistration}/${Date.now()}-${safeOriginalName}`
 
     const { data: uploadedFile, error: uploadError } =
       await supabase.storage
@@ -54,6 +110,7 @@ export default function PhotoUpload({
 
     if (uploadError) {
       setUploading(false)
+
       alert(`Upload failed: ${uploadError.message}`)
       return
     }
@@ -80,25 +137,22 @@ export default function PhotoUpload({
         .select()
         .single()
 
-    setUploading(false)
-
     if (metadataError) {
       await supabase.storage
         .from('vehicle-photos')
         .remove([uploadedFile.path])
 
+      setUploading(false)
+
       alert(
         `The file metadata could not be saved: ${metadataError.message}`
       )
+
       return
     }
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-
-    setDescription('')
-    setServiceVisitId('')
+    resetForm()
+    setUploading(false)
 
     if (onPhotoUploaded) {
       onPhotoUploaded(metadata)
@@ -107,85 +161,141 @@ export default function PhotoUpload({
     alert('Document or photo uploaded successfully.')
   }
 
-  const fieldStyle = {
-    width: '100%',
-    maxWidth: '700px',
-    padding: '10px',
-    boxSizing: 'border-box',
-  }
-
   return (
-    <div>
-      <h2>Documents &amp; Photos</h2>
+    <div className="photo-upload">
+      <div className="photo-upload-heading">
+        <span className="vehicle-section-eyebrow">
+          Add Vehicle File
+        </span>
 
-      <select
-        value={category}
-        onChange={(event) =>
-          setCategory(event.target.value)
-        }
-        style={fieldStyle}
-      >
-        <option>Workshop Photo</option>
-        <option>Damage Photo</option>
-        <option>Completed Work</option>
-        <option>Invoice</option>
-        <option>Receipt</option>
-        <option>Report</option>
-        <option>Other</option>
-      </select>
+        <h3>Upload Document or Photo</h3>
 
-      <br />
-      <br />
+        <p>
+          Store workshop photos, invoices, reports and
+          other documents against this vehicle.
+        </p>
+      </div>
 
-      <select
-        value={serviceVisitId}
-        onChange={(event) =>
-          setServiceVisitId(event.target.value)
-        }
-        style={fieldStyle}
-      >
-        <option value="">
-          Vehicle-wide file — not linked to a visit
-        </option>
+      <div className="photo-upload-form">
+        <div className="form-group">
+          <label htmlFor="vehicle-file-category">
+            File category
+          </label>
 
-        {visits.map((visit) => (
-          <option
-            key={visit.id}
-            value={visit.id}
+          <select
+            id="vehicle-file-category"
+            value={category}
+            onChange={(event) =>
+              setCategory(event.target.value)
+            }
+            disabled={uploading}
           >
-            {visit.service_date} —{' '}
-            {visit.completion_summary || 'Service Visit'}
-          </option>
-        ))}
-      </select>
+            {FILE_CATEGORIES.map((fileCategory) => (
+              <option
+                key={fileCategory}
+                value={fileCategory}
+              >
+                {fileCategory}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <br />
-      <br />
+        <div className="form-group">
+          <label htmlFor="vehicle-file-visit">
+            Related service visit
+          </label>
 
-      <input
-        type="text"
-        placeholder="Description"
-        value={description}
-        onChange={(event) =>
-          setDescription(event.target.value)
-        }
-        style={fieldStyle}
-      />
+          <select
+            id="vehicle-file-visit"
+            value={serviceVisitId}
+            onChange={(event) =>
+              setServiceVisitId(event.target.value)
+            }
+            disabled={uploading}
+          >
+            <option value="">
+              Vehicle-wide file — not linked to a visit
+            </option>
 
-      <br />
-      <br />
+            {visits.map((visit) => (
+              <option
+                key={visit.id}
+                value={visit.id}
+              >
+                {formatVisitDate(visit.service_date)} —{' '}
+                {visit.completion_summary ||
+                  'Service Visit'}
+              </option>
+            ))}
+          </select>
+        </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.pdf,.doc,.docx"
-        onChange={uploadFile}
-        disabled={uploading}
-      />
+        <div className="form-group">
+          <label htmlFor="vehicle-file-description">
+            Description
+          </label>
 
-      {uploading && (
-        <p>Uploading document or photo...</p>
-      )}
+          <textarea
+            id="vehicle-file-description"
+            rows="4"
+            placeholder="Example: Front bumper damage before repair"
+            value={description}
+            onChange={(event) =>
+              setDescription(event.target.value)
+            }
+            disabled={uploading}
+          />
+        </div>
+
+        <div className="photo-file-picker">
+          <input
+            ref={fileInputRef}
+            id="vehicle-file-input"
+            type="file"
+            accept="image/*,.pdf,.doc,.docx"
+            onChange={uploadFile}
+            disabled={uploading}
+          />
+
+          <label
+            htmlFor="vehicle-file-input"
+            className={
+              uploading
+                ? 'photo-file-picker-label disabled'
+                : 'photo-file-picker-label'
+            }
+          >
+            <span className="photo-file-picker-icon">
+              +
+            </span>
+
+            <span>
+              <strong>
+                {uploading
+                  ? 'Uploading file...'
+                  : 'Choose a file'}
+              </strong>
+
+              <small>
+                Images, PDF, Word documents
+              </small>
+            </span>
+          </label>
+
+          {selectedFileName && (
+            <p className="photo-selected-file">
+              Selected: {selectedFileName}
+            </p>
+          )}
+        </div>
+
+        {uploading && (
+          <div className="photo-upload-status">
+            Uploading and saving vehicle file...
+          </div>
+        )}
+      </div>
     </div>
   )
 }

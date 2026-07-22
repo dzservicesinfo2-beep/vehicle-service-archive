@@ -1,294 +1,599 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+
+const initialForm = {
+  registration: '',
+  customerName: '',
+  email: '',
+  phone: '',
+  make: '',
+  model: '',
+  year: '',
+  vin: '',
+  notes: '',
+}
 
 export default function NewVehicle({
   backToDashboard,
   openVehicleSearch,
 }) {
-  const [registration, setRegistration] = useState('')
-  const [customerName, setCustomerName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [make, setMake] = useState('')
-  const [model, setModel] = useState('')
-  const [year, setYear] = useState('')
-  const [vin, setVin] = useState('')
-  const [notes, setNotes] = useState('')
+  const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
+  const [successMessage, setSuccessMessage] =
+    useState('')
+
+  const currentYear = new Date().getFullYear()
+
+  const registrationPreview = useMemo(() => {
+    return formatRegistration(form.registration)
+  }, [form.registration])
+
+  function formatRegistration(value) {
+    return value
+      .toUpperCase()
+      .replace(/\s+/g, '')
+      .replace(/[^A-Z0-9-]/g, '')
+  }
+
+  function updateField(field, value) {
+    setForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+    }))
+
+    if (formError) {
+      setFormError('')
+    }
+
+    if (successMessage) {
+      setSuccessMessage('')
+    }
+  }
+
+  function validateForm() {
+    const cleanRegistration = formatRegistration(
+      form.registration
+    )
+
+    if (!cleanRegistration) {
+      return 'Vehicle registration is required.'
+    }
+
+    if (cleanRegistration.length < 3) {
+      return 'Please enter a valid vehicle registration.'
+    }
+
+    if (!form.customerName.trim()) {
+      return 'Customer or company name is required.'
+    }
+
+    if (
+      form.email.trim() &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        form.email.trim()
+      )
+    ) {
+      return 'Please enter a valid email address.'
+    }
+
+    if (form.year) {
+      const numericYear = Number(form.year)
+
+      if (
+        numericYear < 1900 ||
+        numericYear > currentYear + 1
+      ) {
+        return `Vehicle year must be between 1900 and ${
+          currentYear + 1
+        }.`
+      }
+    }
+
+    if (
+      form.vin.trim() &&
+      form.vin.trim().length !== 17
+    ) {
+      return 'A VIN should contain exactly 17 characters.'
+    }
+
+    return ''
+  }
 
   async function saveVehicle(event) {
     event.preventDefault()
 
-    const cleanRegistration = registration
-      .trim()
-      .toUpperCase()
+    const validationError = validateForm()
 
-    if (!cleanRegistration) {
-      alert('Registration is required.')
+    if (validationError) {
+      setFormError(validationError)
       return
     }
 
-    if (!customerName.trim()) {
-      alert('Customer name is required.')
-      return
-    }
+    const cleanRegistration = formatRegistration(
+      form.registration
+    )
 
     setSaving(true)
+    setFormError('')
+    setSuccessMessage('')
+
+    const { data: existingVehicle, error: checkError } =
+      await supabase
+        .from('vehicles')
+        .select('registration')
+        .eq('registration', cleanRegistration)
+        .maybeSingle()
+
+    if (checkError) {
+      setSaving(false)
+      setFormError(
+        `Unable to check the registration: ${checkError.message}`
+      )
+      return
+    }
+
+    if (existingVehicle) {
+      setSaving(false)
+      setFormError(
+        `A vehicle with registration ${cleanRegistration} already exists.`
+      )
+      return
+    }
 
     const { error } = await supabase
       .from('vehicles')
       .insert([
         {
           registration: cleanRegistration,
-          customer_name: customerName.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          make: make.trim(),
-          model: model.trim(),
-          year: year ? Number(year) : null,
-          vin: vin.trim(),
-          notes: notes.trim(),
+          customer_name: form.customerName.trim(),
+          email: form.email.trim() || null,
+          phone: form.phone.trim() || null,
+          make: form.make.trim() || null,
+          model: form.model.trim() || null,
+          year: form.year
+            ? Number(form.year)
+            : null,
+          vin:
+            form.vin.trim().toUpperCase() || null,
+          notes: form.notes.trim() || null,
         },
       ])
 
     setSaving(false)
 
     if (error) {
-      alert(error.message)
+      if (
+        error.code === '23505' ||
+        error.message
+          .toLowerCase()
+          .includes('duplicate')
+      ) {
+        setFormError(
+          `A vehicle with registration ${cleanRegistration} already exists.`
+        )
+        return
+      }
+
+      setFormError(
+        `The vehicle could not be saved: ${error.message}`
+      )
       return
     }
 
-    alert('Vehicle added successfully.')
+    setForm(initialForm)
+    setSuccessMessage(
+      `${cleanRegistration} was added successfully.`
+    )
 
-    setRegistration('')
-    setCustomerName('')
-    setEmail('')
-    setPhone('')
-    setMake('')
-    setModel('')
-    setYear('')
-    setVin('')
-    setNotes('')
-
-    openVehicleSearch()
+    window.setTimeout(() => {
+      openVehicleSearch()
+    }, 900)
   }
 
-  const inputStyle = {
-    width: '100%',
-    maxWidth: '700px',
-    padding: '12px',
-    fontSize: '16px',
-    boxSizing: 'border-box',
+  function clearForm() {
+    setForm(initialForm)
+    setFormError('')
+    setSuccessMessage('')
   }
 
   return (
-    <div style={{ padding: '30px' }}>
-      <div
-        style={{
-          display: 'flex',
-          gap: '10px',
-          marginBottom: '25px',
-        }}
-      >
-        <button
-          type="button"
-          onClick={backToDashboard}
+    <div className="app new-vehicle-page">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <button
+            type="button"
+            onClick={backToDashboard}
+          >
+            Back to Dashboard
+          </button>
+
+          <h1 className="app-header-title">
+            Vehicle Service Archive
+          </h1>
+
+          <div className="app-header-actions">
+            <button
+              type="button"
+              onClick={openVehicleSearch}
+            >
+              Vehicle Search
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="new-vehicle-container">
+        <section className="new-vehicle-heading">
+          <div>
+            <span className="new-vehicle-eyebrow">
+              Workshop Intake
+            </span>
+
+            <h1>Add New Vehicle</h1>
+
+            <p>
+              Create a new customer and vehicle record
+              before beginning workshop service work.
+            </p>
+          </div>
+
+          <div className="new-vehicle-heading-badge">
+            New Record
+          </div>
+        </section>
+
+        {formError && (
+          <div
+            className="new-vehicle-message new-vehicle-error"
+            role="alert"
+          >
+            <div className="new-vehicle-message-icon">
+              !
+            </div>
+
+            <div>
+              <strong>Vehicle not saved</strong>
+              <p>{formError}</p>
+            </div>
+          </div>
+        )}
+
+        {successMessage && (
+          <div
+            className="new-vehicle-message new-vehicle-success"
+            role="status"
+          >
+            <div className="new-vehicle-message-icon">
+              ✓
+            </div>
+
+            <div>
+              <strong>Vehicle added</strong>
+              <p>{successMessage}</p>
+            </div>
+          </div>
+        )}
+
+        <form
+          className="new-vehicle-form"
+          onSubmit={saveVehicle}
+          noValidate
         >
-          Back to Dashboard
-        </button>
+          <section className="new-vehicle-form-section">
+            <div className="new-vehicle-section-heading">
+              <div className="new-vehicle-section-number">
+                1
+              </div>
 
-        <button
-          type="button"
-          onClick={openVehicleSearch}
-        >
-          Vehicle Search
-        </button>
-      </div>
+              <div>
+                <h2>Customer Information</h2>
 
-      <h1>Add New Vehicle</h1>
+                <p>
+                  Enter the customer or company details
+                  connected to this vehicle.
+                </p>
+              </div>
+            </div>
 
-      <form onSubmit={saveVehicle}>
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>Registration</strong>
-          </label>
+            <div className="new-vehicle-form-grid">
+              <div className="new-vehicle-field new-vehicle-field-full">
+                <label htmlFor="customer-name">
+                  Customer or Company Name
+                  <span className="new-vehicle-required">
+                    *
+                  </span>
+                </label>
 
-          <br />
+                <input
+                  id="customer-name"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Customer or business name"
+                  value={form.customerName}
+                  onChange={(event) =>
+                    updateField(
+                      'customerName',
+                      event.target.value
+                    )
+                  }
+                  disabled={saving}
+                />
+              </div>
 
-          <input
-            type="text"
-            placeholder="Registration"
-            value={registration}
-            onChange={(event) =>
-              setRegistration(event.target.value)
-            }
-            style={inputStyle}
-            required
-          />
-        </div>
+              <div className="new-vehicle-field">
+                <label htmlFor="customer-phone">
+                  Phone Number
+                </label>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>Customer Name</strong>
-          </label>
+                <input
+                  id="customer-phone"
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="Example: 087 123 4567"
+                  value={form.phone}
+                  onChange={(event) =>
+                    updateField(
+                      'phone',
+                      event.target.value
+                    )
+                  }
+                  disabled={saving}
+                />
+              </div>
 
-          <br />
+              <div className="new-vehicle-field">
+                <label htmlFor="customer-email">
+                  Email Address
+                </label>
 
-          <input
-            type="text"
-            placeholder="Customer Name"
-            value={customerName}
-            onChange={(event) =>
-              setCustomerName(event.target.value)
-            }
-            style={inputStyle}
-            required
-          />
-        </div>
+                <input
+                  id="customer-email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="customer@example.com"
+                  value={form.email}
+                  onChange={(event) =>
+                    updateField(
+                      'email',
+                      event.target.value
+                    )
+                  }
+                  disabled={saving}
+                />
+              </div>
+            </div>
+          </section>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>Email</strong>
-          </label>
+          <section className="new-vehicle-form-section">
+            <div className="new-vehicle-section-heading">
+              <div className="new-vehicle-section-number">
+                2
+              </div>
 
-          <br />
+              <div>
+                <h2>Vehicle Information</h2>
 
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(event) =>
-              setEmail(event.target.value)
-            }
-            style={inputStyle}
-          />
-        </div>
+                <p>
+                  Record the identifying details of the
+                  vehicle entering the workshop.
+                </p>
+              </div>
+            </div>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>Phone</strong>
-          </label>
+            <div className="new-vehicle-form-grid">
+              <div className="new-vehicle-field">
+                <label htmlFor="vehicle-registration">
+                  Registration
+                  <span className="new-vehicle-required">
+                    *
+                  </span>
+                </label>
 
-          <br />
+                <input
+                  id="vehicle-registration"
+                  className="new-vehicle-registration-input"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck="false"
+                  placeholder="241-D-12345"
+                  value={form.registration}
+                  onChange={(event) =>
+                    updateField(
+                      'registration',
+                      formatRegistration(
+                        event.target.value
+                      )
+                    )
+                  }
+                  disabled={saving}
+                />
 
-          <input
-            type="text"
-            placeholder="Phone"
-            value={phone}
-            onChange={(event) =>
-              setPhone(event.target.value)
-            }
-            style={inputStyle}
-          />
-        </div>
+                <small>
+                  Registration will be stored as:{' '}
+                  <strong>
+                    {registrationPreview ||
+                      'Not entered'}
+                  </strong>
+                </small>
+              </div>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>Make</strong>
-          </label>
+              <div className="new-vehicle-field">
+                <label htmlFor="vehicle-year">
+                  Year
+                </label>
 
-          <br />
+                <input
+                  id="vehicle-year"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder={String(currentYear)}
+                  min="1900"
+                  max={currentYear + 1}
+                  value={form.year}
+                  onChange={(event) =>
+                    updateField(
+                      'year',
+                      event.target.value
+                    )
+                  }
+                  disabled={saving}
+                />
+              </div>
 
-          <input
-            type="text"
-            placeholder="Make"
-            value={make}
-            onChange={(event) =>
-              setMake(event.target.value)
-            }
-            style={inputStyle}
-          />
-        </div>
+              <div className="new-vehicle-field">
+                <label htmlFor="vehicle-make">
+                  Make
+                </label>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>Model</strong>
-          </label>
+                <input
+                  id="vehicle-make"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Example: Ford"
+                  value={form.make}
+                  onChange={(event) =>
+                    updateField(
+                      'make',
+                      event.target.value
+                    )
+                  }
+                  disabled={saving}
+                />
+              </div>
 
-          <br />
+              <div className="new-vehicle-field">
+                <label htmlFor="vehicle-model">
+                  Model
+                </label>
 
-          <input
-            type="text"
-            placeholder="Model"
-            value={model}
-            onChange={(event) =>
-              setModel(event.target.value)
-            }
-            style={inputStyle}
-          />
-        </div>
+                <input
+                  id="vehicle-model"
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Example: Transit"
+                  value={form.model}
+                  onChange={(event) =>
+                    updateField(
+                      'model',
+                      event.target.value
+                    )
+                  }
+                  disabled={saving}
+                />
+              </div>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>Year</strong>
-          </label>
+              <div className="new-vehicle-field new-vehicle-field-full">
+                <label htmlFor="vehicle-vin">
+                  Vehicle Identification Number
+                </label>
 
-          <br />
+                <input
+                  id="vehicle-vin"
+                  className="new-vehicle-vin-input"
+                  type="text"
+                  autoComplete="off"
+                  spellCheck="false"
+                  placeholder="17-character VIN"
+                  maxLength="17"
+                  value={form.vin}
+                  onChange={(event) =>
+                    updateField(
+                      'vin',
+                      event.target.value
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, '')
+                    )
+                  }
+                  disabled={saving}
+                />
 
-          <input
-            type="number"
-            placeholder="Year"
-            value={year}
-            onChange={(event) =>
-              setYear(event.target.value)
-            }
-            style={inputStyle}
-            min="1900"
-            max="2100"
-          />
-        </div>
+                <small>
+                  {form.vin.length}/17 characters
+                </small>
+              </div>
+            </div>
+          </section>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label>
-            <strong>VIN</strong>
-          </label>
+          <section className="new-vehicle-form-section">
+            <div className="new-vehicle-section-heading">
+              <div className="new-vehicle-section-number">
+                3
+              </div>
 
-          <br />
+              <div>
+                <h2>Workshop Notes</h2>
 
-          <input
-            type="text"
-            placeholder="VIN"
-            value={vin}
-            onChange={(event) =>
-              setVin(event.target.value)
-            }
-            style={inputStyle}
-          />
-        </div>
+                <p>
+                  Add useful customer, vehicle or fleet
+                  information for workshop staff.
+                </p>
+              </div>
+            </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label>
-            <strong>Notes</strong>
-          </label>
+            <div className="new-vehicle-field new-vehicle-field-full">
+              <label htmlFor="vehicle-notes">
+                Vehicle or Customer Notes
+              </label>
 
-          <br />
+              <textarea
+                id="vehicle-notes"
+                placeholder="Add fleet details, customer instructions, recurring issues or other useful information..."
+                value={form.notes}
+                onChange={(event) =>
+                  updateField(
+                    'notes',
+                    event.target.value
+                  )
+                }
+                disabled={saving}
+              />
 
-          <textarea
-            placeholder="Vehicle or customer notes"
-            value={notes}
-            onChange={(event) =>
-              setNotes(event.target.value)
-            }
-            style={{
-              ...inputStyle,
-              minHeight: '160px',
-              resize: 'vertical',
-            }}
-          />
-        </div>
+              <small>
+                These notes will appear on the vehicle
+                profile.
+              </small>
+            </div>
+          </section>
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            padding: '12px 24px',
-            fontSize: '16px',
-            cursor: saving ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {saving ? 'Saving Vehicle...' : 'Save Vehicle'}
-        </button>
-      </form>
+          <footer className="new-vehicle-form-actions">
+            <div>
+              <strong>Ready to create the record?</strong>
+
+              <span>
+                Required fields are marked with an
+                asterisk.
+              </span>
+            </div>
+
+            <div className="new-vehicle-action-buttons">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={clearForm}
+                disabled={saving}
+              >
+                Clear Form
+              </button>
+
+              <button
+                type="submit"
+                className="new-vehicle-save-button"
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <span className="new-vehicle-spinner" />
+                    Saving Vehicle...
+                  </>
+                ) : (
+                  'Save Vehicle'
+                )}
+              </button>
+            </div>
+          </footer>
+        </form>
+      </main>
     </div>
   )
 }

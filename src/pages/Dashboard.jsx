@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function Dashboard({
@@ -9,15 +9,23 @@ export default function Dashboard({
   const [customerCount, setCustomerCount] = useState(0)
   const [serviceCount, setServiceCount] = useState(0)
   const [reminders, setReminders] = useState([])
+  const [latestVehicleVisits, setLatestVehicleVisits] =
+    useState([])
+  const [recentVisits, setRecentVisits] = useState([])
   const [loading, setLoading] = useState(true)
+  const [completingReminderId, setCompletingReminderId] =
+    useState(null)
 
   useEffect(() => {
     async function loadDashboard() {
+      setLoading(true)
+
       const [
         vehiclesResult,
         customersResult,
         servicesResult,
         remindersResult,
+        visitDetailsResult,
       ] = await Promise.all([
         supabase
           .from('vehicles')
@@ -45,7 +53,43 @@ export default function Dashboard({
             ascending: true,
             nullsFirst: false,
           }),
+
+        supabase
+          .from('service_visits')
+          .select(
+            `
+              id,
+              registration,
+              service_date,
+              job_status,
+              technician_name,
+              mileage,
+              mileage_unit,
+              completion_summary
+            `
+          )
+          .order('service_date', { ascending: false })
+          .order('id', { ascending: false }),
       ])
+
+      const errors = [
+        vehiclesResult.error,
+        customersResult.error,
+        servicesResult.error,
+        remindersResult.error,
+        visitDetailsResult.error,
+      ].filter(Boolean)
+
+      if (errors.length > 0) {
+        console.error(
+          'Dashboard loading errors:',
+          errors
+        )
+
+        alert(
+          `Some dashboard information could not be loaded: ${errors[0].message}`
+        )
+      }
 
       const uniqueCustomers = new Set(
         (customersResult.data || [])
@@ -57,17 +101,92 @@ export default function Dashboard({
           .filter(Boolean)
       )
 
+      const allVisits = visitDetailsResult.data || []
+      const latestByRegistration = new Map()
+
+      allVisits.forEach((visit) => {
+        if (
+          visit.registration &&
+          !latestByRegistration.has(visit.registration)
+        ) {
+          latestByRegistration.set(
+            visit.registration,
+            visit
+          )
+        }
+      })
+
       setVehicleCount(vehiclesResult.count || 0)
       setCustomerCount(uniqueCustomers.size)
       setServiceCount(servicesResult.count || 0)
       setReminders(remindersResult.data || [])
+      setLatestVehicleVisits([
+        ...latestByRegistration.values(),
+      ])
+      setRecentVisits(allVisits.slice(0, 6))
       setLoading(false)
     }
 
     loadDashboard()
   }, [])
 
+  const workshopCounts = useMemo(() => {
+    return latestVehicleVisits.reduce(
+      (counts, visit) => {
+        const status =
+          visit.job_status || 'Status Not Recorded'
+
+        if (status === 'In Progress') {
+          counts.inProgress += 1
+        }
+
+        if (status === 'Waiting for Parts') {
+          counts.waitingForParts += 1
+        }
+
+        if (status === 'Waiting for Inspection') {
+          counts.waitingForInspection += 1
+        }
+
+        if (
+          status === 'Ready for Collection' ||
+          status === 'Ready'
+        ) {
+          counts.readyForCollection += 1
+        }
+
+        return counts
+      },
+      {
+        inProgress: 0,
+        waitingForParts: 0,
+        waitingForInspection: 0,
+        readyForCollection: 0,
+      }
+    )
+  }, [latestVehicleVisits])
+
+  const reminderCounts = useMemo(() => {
+    return reminders.reduce(
+      (counts, reminder) => {
+        if (isReminderOverdue(reminder.due_date)) {
+          counts.overdue += 1
+        } else {
+          counts.upcoming += 1
+        }
+
+        return counts
+      },
+      {
+        overdue: 0,
+        upcoming: 0,
+      }
+    )
+  }, [reminders])
+
   async function completeReminder(reminderId) {
+    setCompletingReminderId(reminderId)
+
     const { error } = await supabase
       .from('service_reminders')
       .update({
@@ -76,10 +195,13 @@ export default function Dashboard({
       })
       .eq('id', reminderId)
 
+    setCompletingReminderId(null)
+
     if (error) {
       alert(
         `Unable to complete reminder: ${error.message}`
       )
+
       return
     }
 
@@ -91,7 +213,11 @@ export default function Dashboard({
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      alert(`Unable to log out: ${error.message}`)
+    }
   }
 
   function isReminderOverdue(dueDate) {
@@ -102,296 +228,491 @@ export default function Dashboard({
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const reminderDate = new Date(`${dueDate}T00:00:00`)
+    const reminderDate = new Date(
+      `${dueDate}T00:00:00`
+    )
 
     return reminderDate < today
   }
 
-  const cardStyle = {
-    width: '220px',
-    minHeight: '130px',
-    padding: '22px',
-    border: '1px solid #dedede',
-    borderRadius: '12px',
-    backgroundColor: '#ffffff',
-    boxSizing: 'border-box',
-    textAlign: 'center',
+  function formatDate(dateValue) {
+    if (!dateValue) {
+      return 'Not set'
+    }
+
+    return new Date(
+      `${dateValue}T00:00:00`
+    ).toLocaleDateString('en-IE', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
   }
 
-  const actionButtonStyle = {
-    padding: '11px 18px',
-    fontSize: '15px',
-    cursor: 'pointer',
+  function formatMileage(value, unit) {
+    if (
+      value === null ||
+      value === undefined ||
+      value === ''
+    ) {
+      return 'Not recorded'
+    }
+
+    const numericValue = Number(value)
+
+    const formattedValue = Number.isNaN(numericValue)
+      ? value
+      : numericValue.toLocaleString('en-IE')
+
+    return `${formattedValue} ${unit || 'KM'}`
+  }
+
+  function getStatusClass(status) {
+    if (status === 'Completed') {
+      return 'dashboard-status dashboard-status-completed'
+    }
+
+    if (
+      status === 'Waiting for Parts' ||
+      status === 'Waiting for Inspection'
+    ) {
+      return 'dashboard-status dashboard-status-warning'
+    }
+
+    if (
+      status === 'Ready for Collection' ||
+      status === 'Ready'
+    ) {
+      return 'dashboard-status dashboard-status-ready'
+    }
+
+    if (status === 'In Progress') {
+      return 'dashboard-status dashboard-status-progress'
+    }
+
+    return 'dashboard-status'
   }
 
   return (
-    <main
-      style={{
-        width: '100%',
-        minHeight: '100vh',
-        boxSizing: 'border-box',
-        padding: '35px 20px 60px',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '1100px',
-          margin: '0 auto',
-        }}
-      >
-        <div
-          style={{
-            position: 'relative',
-            textAlign: 'center',
-            marginBottom: '40px',
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: '48px',
-              lineHeight: 1.2,
-            }}
-          >
-            Vehicle Service Archive
-          </h1>
+    <main className="workshop-dashboard">
+      <div className="workshop-dashboard-container">
+        <header className="dashboard-topbar">
+          <div>
+            <span className="dashboard-eyebrow">
+              DZ Services Workshop Management
+            </span>
+
+            <h1>Vehicle Service Archive</h1>
+
+            <p>
+              Workshop activity, vehicle records and service
+              reminders in one place.
+            </p>
+          </div>
 
           <button
             type="button"
+            className="dashboard-logout-button"
             onClick={handleLogout}
-            style={{
-              position: 'absolute',
-              top: '8px',
-              right: 0,
-              padding: '7px 12px',
-              cursor: 'pointer',
-            }}
           >
             Logout
           </button>
-        </div>
+        </header>
 
-        <section
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'stretch',
-            flexWrap: 'wrap',
-            gap: '20px',
-            marginBottom: '35px',
-          }}
-        >
-          <div style={cardStyle}>
-            <h2
-              style={{
-                marginTop: 0,
-                fontSize: '20px',
-              }}
-            >
-              Total Vehicles
-            </h2>
+        <section className="dashboard-hero">
+          <div>
+            <span className="dashboard-hero-label">
+              Workshop Overview
+            </span>
 
-            <div
-              style={{
-                fontSize: '44px',
-                fontWeight: 'bold',
-              }}
-            >
-              {loading ? '...' : vehicleCount}
-            </div>
+            <h2>Good to see you.</h2>
+
+            <p>
+              Review current workshop activity or open a
+              vehicle record to continue working.
+            </p>
           </div>
 
-          <div style={cardStyle}>
-            <h2
-              style={{
-                marginTop: 0,
-                fontSize: '20px',
-              }}
+          <div className="dashboard-hero-actions">
+            <button
+              type="button"
+              className="dashboard-primary-action"
+              onClick={openVehicleSearch}
             >
-              Total Customers
-            </h2>
+              Open Vehicle Search
+            </button>
 
-            <div
-              style={{
-                fontSize: '44px',
-                fontWeight: 'bold',
-              }}
+            <button
+              type="button"
+              className="dashboard-secondary-action"
+              onClick={openNewVehicle}
             >
-              {loading ? '...' : customerCount}
-            </div>
-          </div>
-
-          <div style={cardStyle}>
-            <h2
-              style={{
-                marginTop: 0,
-                fontSize: '20px',
-              }}
-            >
-              Total Service Visits
-            </h2>
-
-            <div
-              style={{
-                fontSize: '44px',
-                fontWeight: 'bold',
-              }}
-            >
-              {loading ? '...' : serviceCount}
-            </div>
+              Add New Vehicle
+            </button>
           </div>
         </section>
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-            marginBottom: '35px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={openVehicleSearch}
-            style={actionButtonStyle}
-          >
-            Open Vehicle Search
-          </button>
+        <section className="dashboard-stat-grid">
+          <article className="dashboard-stat-card">
+            <span className="dashboard-stat-icon">V</span>
 
-          <button
-            type="button"
-            onClick={openNewVehicle}
-            style={actionButtonStyle}
-          >
-            Add New Vehicle
-          </button>
-        </div>
+            <div>
+              <span>Total Vehicles</span>
 
-        <hr
-          style={{
-            border: 0,
-            borderTop: '1px solid #cccccc',
-            marginBottom: '28px',
-          }}
-        />
+              <strong>
+                {loading ? '—' : vehicleCount}
+              </strong>
 
-        <section
-          style={{
-            width: '100%',
-            maxWidth: '850px',
-            margin: '0 auto',
-            textAlign: 'center',
-          }}
-        >
-          <h2
-            style={{
-              marginBottom: '18px',
-            }}
-          >
-            Internal Service Reminders
-          </h2>
+              <small>Stored vehicle records</small>
+            </div>
+          </article>
 
-          {loading && <p>Loading reminders...</p>}
+          <article className="dashboard-stat-card">
+            <span className="dashboard-stat-icon">C</span>
 
-          {!loading && reminders.length === 0 && (
-            <p
-              style={{
-                color: '#666666',
-                fontSize: '17px',
-              }}
-            >
-              No open service reminders.
-            </p>
-          )}
+            <div>
+              <span>Total Customers</span>
 
-          {!loading &&
-            reminders.map((reminder) => {
-              const overdue = isReminderOverdue(
-                reminder.due_date
-              )
+              <strong>
+                {loading ? '—' : customerCount}
+              </strong>
 
-              return (
-                <article
-                  key={reminder.id}
-                  style={{
-                    border: overdue
-                      ? '2px solid #b42318'
-                      : '1px solid #dddddd',
-                    borderRadius: '10px',
-                    padding: '18px',
-                    marginBottom: '14px',
-                    textAlign: 'left',
-                    backgroundColor: '#ffffff',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      flexWrap: 'wrap',
-                      gap: '12px',
-                    }}
+              <small>Unique customer records</small>
+            </div>
+          </article>
+
+          <article className="dashboard-stat-card">
+            <span className="dashboard-stat-icon">S</span>
+
+            <div>
+              <span>Service Visits</span>
+
+              <strong>
+                {loading ? '—' : serviceCount}
+              </strong>
+
+              <small>All recorded workshop visits</small>
+            </div>
+          </article>
+
+          <article className="dashboard-stat-card dashboard-stat-attention">
+            <span className="dashboard-stat-icon">!</span>
+
+            <div>
+              <span>Overdue Reminders</span>
+
+              <strong>
+                {loading
+                  ? '—'
+                  : reminderCounts.overdue}
+              </strong>
+
+              <small>Require attention</small>
+            </div>
+          </article>
+        </section>
+
+        <section className="dashboard-section">
+          <div className="dashboard-section-heading">
+            <div>
+              <span className="dashboard-eyebrow">
+                Current Activity
+              </span>
+
+              <h2>Workshop Status</h2>
+
+              <p>
+                Status is based on each vehicle’s latest
+                recorded service visit.
+              </p>
+            </div>
+          </div>
+
+          <div className="dashboard-workshop-grid">
+            <article className="dashboard-workshop-card">
+              <div className="dashboard-workshop-card-top">
+                <span>In Progress</span>
+
+                <strong>
+                  {loading
+                    ? '—'
+                    : workshopCounts.inProgress}
+                </strong>
+              </div>
+
+              <p>Vehicles currently being worked on.</p>
+            </article>
+
+            <article className="dashboard-workshop-card">
+              <div className="dashboard-workshop-card-top">
+                <span>Waiting for Parts</span>
+
+                <strong>
+                  {loading
+                    ? '—'
+                    : workshopCounts.waitingForParts}
+                </strong>
+              </div>
+
+              <p>Jobs paused until required parts arrive.</p>
+            </article>
+
+            <article className="dashboard-workshop-card">
+              <div className="dashboard-workshop-card-top">
+                <span>Waiting for Inspection</span>
+
+                <strong>
+                  {loading
+                    ? '—'
+                    : workshopCounts.waitingForInspection}
+                </strong>
+              </div>
+
+              <p>Vehicles awaiting checks or approval.</p>
+            </article>
+
+            <article className="dashboard-workshop-card">
+              <div className="dashboard-workshop-card-top">
+                <span>Ready for Collection</span>
+
+                <strong>
+                  {loading
+                    ? '—'
+                    : workshopCounts.readyForCollection}
+                </strong>
+              </div>
+
+              <p>Completed vehicles ready for customers.</p>
+            </article>
+          </div>
+        </section>
+
+        <div className="dashboard-content-grid">
+          <section className="dashboard-panel">
+            <div className="dashboard-section-heading">
+              <div>
+                <span className="dashboard-eyebrow">
+                  Follow-up
+                </span>
+
+                <h2>Service Reminders</h2>
+
+                <p>
+                  Upcoming and overdue customer service
+                  requirements.
+                </p>
+              </div>
+
+              {!loading && (
+                <span className="dashboard-count-badge">
+                  {reminders.length} open
+                </span>
+              )}
+            </div>
+
+            {loading && (
+              <div className="dashboard-empty-state">
+                Loading service reminders...
+              </div>
+            )}
+
+            {!loading && reminders.length === 0 && (
+              <div className="dashboard-empty-state">
+                <strong>No open reminders</strong>
+
+                <p>
+                  All service reminders are currently up to
+                  date.
+                </p>
+              </div>
+            )}
+
+            {!loading &&
+              reminders.slice(0, 6).map((reminder) => {
+                const overdue = isReminderOverdue(
+                  reminder.due_date
+                )
+
+                return (
+                  <article
+                    key={reminder.id}
+                    className={
+                      overdue
+                        ? 'dashboard-reminder dashboard-reminder-overdue'
+                        : 'dashboard-reminder'
+                    }
                   >
-                    <div>
-                      <h3
-                        style={{
-                          marginTop: 0,
-                          marginBottom: '10px',
-                        }}
-                      >
-                        {reminder.registration}
-                      </h3>
+                    <div className="dashboard-reminder-main">
+                      <div className="dashboard-reminder-title">
+                        <strong>
+                          {reminder.registration}
+                        </strong>
 
-                      <p>
-                        <strong>Due date:</strong>{' '}
-                        {reminder.due_date || 'Not set'}
-                      </p>
+                        <span
+                          className={
+                            overdue
+                              ? 'dashboard-reminder-label overdue'
+                              : 'dashboard-reminder-label'
+                          }
+                        >
+                          {overdue
+                            ? 'Overdue'
+                            : 'Upcoming'}
+                        </span>
+                      </div>
 
-                      <p>
-                        <strong>Due mileage:</strong>{' '}
-                        {reminder.due_mileage ??
-                          'Not set'}
-                      </p>
+                      <div className="dashboard-reminder-details">
+                        <span>
+                          <small>Due date</small>
+
+                          <strong>
+                            {formatDate(
+                              reminder.due_date
+                            )}
+                          </strong>
+                        </span>
+
+                        <span>
+                          <small>Due mileage</small>
+
+                          <strong>
+                            {reminder.due_mileage != null
+                              ? Number(
+                                  reminder.due_mileage
+                                ).toLocaleString(
+                                  'en-IE'
+                                )
+                              : 'Not set'}
+                          </strong>
+                        </span>
+                      </div>
 
                       {reminder.notes && (
-                        <p>
-                          <strong>Notes:</strong>{' '}
-                          {reminder.notes}
-                        </p>
-                      )}
-
-                      {overdue && (
-                        <p
-                          style={{
-                            fontWeight: 'bold',
-                            color: '#b42318',
-                          }}
-                        >
-                          OVERDUE
-                        </p>
+                        <p>{reminder.notes}</p>
                       )}
                     </div>
 
                     <button
                       type="button"
+                      className="dashboard-complete-button"
                       onClick={() =>
                         completeReminder(reminder.id)
                       }
-                      style={{
-                        padding: '9px 14px',
-                        cursor: 'pointer',
-                      }}
+                      disabled={
+                        completingReminderId ===
+                        reminder.id
+                      }
                     >
-                      Mark Complete
+                      {completingReminderId ===
+                      reminder.id
+                        ? 'Saving...'
+                        : 'Mark Complete'}
                     </button>
+                  </article>
+                )
+              })}
+          </section>
+
+          <section className="dashboard-panel">
+            <div className="dashboard-section-heading">
+              <div>
+                <span className="dashboard-eyebrow">
+                  Latest Records
+                </span>
+
+                <h2>Recent Service Visits</h2>
+
+                <p>
+                  Most recently added workshop records.
+                </p>
+              </div>
+            </div>
+
+            {loading && (
+              <div className="dashboard-empty-state">
+                Loading recent visits...
+              </div>
+            )}
+
+            {!loading && recentVisits.length === 0 && (
+              <div className="dashboard-empty-state">
+                <strong>No service visits yet</strong>
+
+                <p>
+                  Recent workshop jobs will appear here.
+                </p>
+              </div>
+            )}
+
+            {!loading &&
+              recentVisits.map((visit) => (
+                <article
+                  key={visit.id}
+                  className="dashboard-recent-visit"
+                >
+                  <div className="dashboard-recent-visit-top">
+                    <div>
+                      <strong>
+                        {visit.registration ||
+                          'No registration'}
+                      </strong>
+
+                      <span>
+                        {formatDate(
+                          visit.service_date
+                        )}
+                      </span>
+                    </div>
+
+                    <span
+                      className={getStatusClass(
+                        visit.job_status
+                      )}
+                    >
+                      {visit.job_status ||
+                        'Status not recorded'}
+                    </span>
                   </div>
+
+                  <div className="dashboard-recent-visit-meta">
+                    <span>
+                      <small>Technician</small>
+
+                      <strong>
+                        {visit.technician_name ||
+                          'Not recorded'}
+                      </strong>
+                    </span>
+
+                    <span>
+                      <small>Mileage</small>
+
+                      <strong>
+                        {formatMileage(
+                          visit.mileage,
+                          visit.mileage_unit
+                        )}
+                      </strong>
+                    </span>
+                  </div>
+
+                  {visit.completion_summary && (
+                    <p>{visit.completion_summary}</p>
+                  )}
                 </article>
-              )
-            })}
-        </section>
+              ))}
+
+            {!loading && recentVisits.length > 0 && (
+              <button
+                type="button"
+                className="dashboard-panel-action"
+                onClick={openVehicleSearch}
+              >
+                Search All Vehicles
+              </button>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   )
