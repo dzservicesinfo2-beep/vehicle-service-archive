@@ -4867,3 +4867,130 @@
     flex-direction: column;
   }
 }
+/* ========================================
+   PASSWORD RECOVERY
+======================================== */
+
+.password-reset-card {
+  width: min(100%, 470px);
+}
+
+.password-reset-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  padding: 7px 12px;
+  border: 1px solid rgba(31, 84, 147, 0.2);
+  border-radius: 999px;
+  background: rgba(31, 84, 147, 0.08);
+  color: #1f5493;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.password-reset-card h1 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.password-reset-intro {
+  margin: 0 0 24px;
+  color: #5e6877;
+  line-height: 1.6;
+}
+
+.password-reset-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.password-reset-form label {
+  margin-top: 5px;
+  color: #273244;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.password-reset-form input {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid #ccd3dd;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.password-reset-form input:focus {
+  border-color: #1f5493;
+  box-shadow: 0 0 0 3px rgba(31, 84, 147, 0.12);
+}
+
+.password-reset-form input:disabled {
+  cursor: not-allowed;
+  background: #f2f4f7;
+  opacity: 0.75;
+}
+
+.password-reset-primary {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #1f5493;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.password-reset-primary:hover:not(:disabled) {
+  background: #173f70;
+  transform: translateY(-1px);
+}
+
+.password-reset-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.password-reset-error,
+.password-reset-success {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.password-reset-error {
+  border: 1px solid #efb8b8;
+  background: #fff1f1;
+  color: #9f2525;
+}
+
+.password-reset-success {
+  border: 1px solid #acd8b9;
+  background: #effaf2;
+  color: #246b37;
+}
+
+@media (max-width: 600px) {
+  .password-reset-card {
+    width: 100%;
+  }
+}
