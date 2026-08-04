@@ -1,142 +1,280 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { supabase } from '../lib/supabase'
+
+function formatDate(value) {
+  if (!value) {
+    return 'Not recorded'
+  }
+
+  const date = new Date(`${value}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleDateString('en-IE', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function formatMileage(value, unit) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
+    return 'Not recorded'
+  }
+
+  const number = Number(value)
+
+  const formatted = Number.isNaN(number)
+    ? value
+    : number.toLocaleString('en-IE')
+
+  return `${formatted} ${unit || 'KM'}`
+}
+
+function isOverdue(dueDate) {
+  if (!dueDate) {
+    return false
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const due = new Date(`${dueDate}T00:00:00`)
+
+  return due < today
+}
+
+function isDueToday(dueDate) {
+  if (!dueDate) {
+    return false
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const due = new Date(`${dueDate}T00:00:00`)
+
+  return due.getTime() === today.getTime()
+}
+
+function isServiceToday(serviceDate) {
+  if (!serviceDate) {
+    return false
+  }
+
+  const today = new Date()
+  const localToday = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-')
+
+  return serviceDate === localToday
+}
+
+function getStatusClass(status) {
+  if (status === 'Completed') {
+    return 'dashboard-status dashboard-status-completed'
+  }
+
+  if (
+    status === 'Waiting for Parts' ||
+    status === 'Waiting for Inspection'
+  ) {
+    return 'dashboard-status dashboard-status-warning'
+  }
+
+  if (
+    status === 'Ready for Collection' ||
+    status === 'Ready'
+  ) {
+    return 'dashboard-status dashboard-status-ready'
+  }
+
+  if (
+    status === 'Work in Progress' ||
+    status === 'In Progress'
+  ) {
+    return 'dashboard-status dashboard-status-progress'
+  }
+
+  return 'dashboard-status'
+}
 
 export default function Dashboard({
   openVehicleSearch,
   openNewVehicle,
+  openCustomerManagement,
+  openServiceReminders,
+  isAdmin = false,
 }) {
-  const [vehicleCount, setVehicleCount] = useState(0)
-  const [customerCount, setCustomerCount] = useState(0)
-  const [serviceCount, setServiceCount] = useState(0)
+  const [vehicles, setVehicles] = useState([])
+  const [customers, setCustomers] = useState([])
+  const [visits, setVisits] = useState([])
   const [reminders, setReminders] = useState([])
-  const [latestVehicleVisits, setLatestVehicleVisits] =
-    useState([])
-  const [recentVisits, setRecentVisits] = useState([])
+
   const [loading, setLoading] = useState(true)
-  const [completingReminderId, setCompletingReminderId] =
-    useState(null)
+  const [errorMessage, setErrorMessage] = useState('')
 
-  useEffect(() => {
-    async function loadDashboard() {
-      setLoading(true)
+  const loadDashboard = useCallback(async () => {
+    setLoading(true)
+    setErrorMessage('')
 
-      const [
-        vehiclesResult,
-        customersResult,
-        servicesResult,
-        remindersResult,
-        visitDetailsResult,
-      ] = await Promise.all([
-        supabase
-          .from('vehicles')
-          .select('*', {
-            count: 'exact',
-            head: true,
-          }),
-
-        supabase
-          .from('vehicles')
-          .select('customer_name'),
-
-        supabase
-          .from('service_visits')
-          .select('*', {
-            count: 'exact',
-            head: true,
-          }),
-
-        supabase
-          .from('service_reminders')
-          .select('*')
-          .eq('status', 'Open')
-          .order('due_date', {
-            ascending: true,
-            nullsFirst: false,
-          }),
-
-        supabase
-          .from('service_visits')
-          .select(
-            `
-              id,
-              registration,
-              service_date,
-              job_status,
-              technician_name,
-              mileage,
-              mileage_unit,
-              completion_summary
-            `
-          )
-          .order('service_date', { ascending: false })
-          .order('id', { ascending: false }),
-      ])
-
-      const errors = [
-        vehiclesResult.error,
-        customersResult.error,
-        servicesResult.error,
-        remindersResult.error,
-        visitDetailsResult.error,
-      ].filter(Boolean)
-
-      if (errors.length > 0) {
-        console.error(
-          'Dashboard loading errors:',
-          errors
+    const [
+      vehiclesResult,
+      customersResult,
+      visitsResult,
+      remindersResult,
+    ] = await Promise.all([
+      supabase
+        .from('vehicles')
+        .select(
+          `
+            registration,
+            customer_name,
+            email,
+            phone,
+            make,
+            model,
+            year,
+            created_at
+          `
         )
+        .order('created_at', {
+          ascending: false,
+        }),
 
-        alert(
-          `Some dashboard information could not be loaded: ${errors[0].message}`
+      supabase
+        .from('profiles')
+        .select(
+          `
+            id,
+            email,
+            full_name,
+            active,
+            created_at
+          `
         )
-      }
+        .eq('role', 'customer')
+        .order('created_at', {
+          ascending: false,
+        }),
 
-      const uniqueCustomers = new Set(
-        (customersResult.data || [])
-          .map((vehicle) =>
-            vehicle.customer_name
-              ?.trim()
-              .toLowerCase()
-          )
-          .filter(Boolean)
+      supabase
+        .from('service_visits')
+        .select(
+          `
+            id,
+            registration,
+            service_date,
+            job_status,
+            technician_name,
+            mileage,
+            mileage_unit,
+            completion_summary
+          `
+        )
+        .order('service_date', {
+          ascending: false,
+        })
+        .order('id', {
+          ascending: false,
+        }),
+
+      supabase
+        .from('service_reminders')
+        .select('*')
+        .eq('status', 'Open')
+        .order('due_date', {
+          ascending: true,
+          nullsFirst: false,
+        }),
+    ])
+
+    const firstError =
+      vehiclesResult.error ||
+      customersResult.error ||
+      visitsResult.error ||
+      remindersResult.error
+
+    if (firstError) {
+      setErrorMessage(
+        `Some dashboard information could not be loaded: ${firstError.message}`
       )
-
-      const allVisits = visitDetailsResult.data || []
-      const latestByRegistration = new Map()
-
-      allVisits.forEach((visit) => {
-        if (
-          visit.registration &&
-          !latestByRegistration.has(visit.registration)
-        ) {
-          latestByRegistration.set(
-            visit.registration,
-            visit
-          )
-        }
-      })
-
-      setVehicleCount(vehiclesResult.count || 0)
-      setCustomerCount(uniqueCustomers.size)
-      setServiceCount(servicesResult.count || 0)
-      setReminders(remindersResult.data || [])
-      setLatestVehicleVisits([
-        ...latestByRegistration.values(),
-      ])
-      setRecentVisits(allVisits.slice(0, 6))
-      setLoading(false)
     }
 
-    loadDashboard()
+    setVehicles(vehiclesResult.data || [])
+    setCustomers(customersResult.data || [])
+    setVisits(visitsResult.data || [])
+    setReminders(remindersResult.data || [])
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    loadDashboard()
+
+    const refreshInterval = window.setInterval(() => {
+      loadDashboard()
+    }, 30000)
+
+    return () => {
+      window.clearInterval(refreshInterval)
+    }
+  }, [loadDashboard])
+
+  const vehicleMap = useMemo(() => {
+    return new Map(
+      vehicles.map((vehicle) => [
+        vehicle.registration,
+        vehicle,
+      ])
+    )
+  }, [vehicles])
+
+  const latestVehicleVisits = useMemo(() => {
+    const latestByRegistration = new Map()
+
+    visits.forEach((visit) => {
+      if (
+        visit.registration &&
+        !latestByRegistration.has(visit.registration)
+      ) {
+        latestByRegistration.set(
+          visit.registration,
+          visit
+        )
+      }
+    })
+
+    return [...latestByRegistration.values()]
+  }, [visits])
+
+  const todayJobs = useMemo(() => {
+    return visits.filter((visit) =>
+      isServiceToday(visit.service_date)
+    )
+  }, [visits])
 
   const workshopCounts = useMemo(() => {
     return latestVehicleVisits.reduce(
       (counts, visit) => {
-        const status =
-          visit.job_status || 'Status Not Recorded'
+        const status = visit.job_status || ''
 
-        if (status === 'In Progress') {
+        if (
+          status === 'Work in Progress' ||
+          status === 'In Progress'
+        ) {
           counts.inProgress += 1
         }
 
@@ -169,128 +307,34 @@ export default function Dashboard({
   const reminderCounts = useMemo(() => {
     return reminders.reduce(
       (counts, reminder) => {
-        if (isReminderOverdue(reminder.due_date)) {
+        if (isOverdue(reminder.due_date)) {
           counts.overdue += 1
-        } else {
-          counts.upcoming += 1
+        }
+
+        if (isDueToday(reminder.due_date)) {
+          counts.today += 1
         }
 
         return counts
       },
       {
         overdue: 0,
-        upcoming: 0,
+        today: 0,
       }
     )
   }, [reminders])
 
-  async function completeReminder(reminderId) {
-    setCompletingReminderId(reminderId)
-
-    const { error } = await supabase
-      .from('service_reminders')
-      .update({
-        status: 'Completed',
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', reminderId)
-
-    setCompletingReminderId(null)
-
-    if (error) {
-      alert(
-        `Unable to complete reminder: ${error.message}`
-      )
-
-      return
-    }
-
-    setReminders((currentReminders) =>
-      currentReminders.filter(
-        (reminder) => reminder.id !== reminderId
-      )
-    )
-  }
+  const recentVehicles = vehicles.slice(0, 10)
+  const recentCustomers = customers.slice(0, 10)
 
   async function handleLogout() {
     const { error } = await supabase.auth.signOut()
 
     if (error) {
-      alert(`Unable to log out: ${error.message}`)
+      setErrorMessage(
+        `Unable to log out: ${error.message}`
+      )
     }
-  }
-
-  function isReminderOverdue(dueDate) {
-    if (!dueDate) {
-      return false
-    }
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const reminderDate = new Date(
-      `${dueDate}T00:00:00`
-    )
-
-    return reminderDate < today
-  }
-
-  function formatDate(dateValue) {
-    if (!dateValue) {
-      return 'Not set'
-    }
-
-    return new Date(
-      `${dateValue}T00:00:00`
-    ).toLocaleDateString('en-IE', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })
-  }
-
-  function formatMileage(value, unit) {
-    if (
-      value === null ||
-      value === undefined ||
-      value === ''
-    ) {
-      return 'Not recorded'
-    }
-
-    const numericValue = Number(value)
-
-    const formattedValue = Number.isNaN(numericValue)
-      ? value
-      : numericValue.toLocaleString('en-IE')
-
-    return `${formattedValue} ${unit || 'KM'}`
-  }
-
-  function getStatusClass(status) {
-    if (status === 'Completed') {
-      return 'dashboard-status dashboard-status-completed'
-    }
-
-    if (
-      status === 'Waiting for Parts' ||
-      status === 'Waiting for Inspection'
-    ) {
-      return 'dashboard-status dashboard-status-warning'
-    }
-
-    if (
-      status === 'Ready for Collection' ||
-      status === 'Ready'
-    ) {
-      return 'dashboard-status dashboard-status-ready'
-    }
-
-    if (status === 'In Progress') {
-      return 'dashboard-status dashboard-status-progress'
-    }
-
-    return 'dashboard-status'
   }
 
   return (
@@ -305,8 +349,8 @@ export default function Dashboard({
             <h1>Vehicle Service Archive</h1>
 
             <p>
-              Workshop activity, vehicle records and service
-              reminders in one place.
+              Workshop activity, vehicles, customers and
+              service reminders in one place.
             </p>
           </div>
 
@@ -319,6 +363,15 @@ export default function Dashboard({
           </button>
         </header>
 
+        {errorMessage && (
+          <div
+            className="dashboard-error-message"
+            role="alert"
+          >
+            {errorMessage}
+          </div>
+        )}
+
         <section className="dashboard-hero">
           <div>
             <span className="dashboard-hero-label">
@@ -328,8 +381,8 @@ export default function Dashboard({
             <h2>Good to see you.</h2>
 
             <p>
-              Review current workshop activity or open a
-              vehicle record to continue working.
+              Open a vehicle record, register a new vehicle
+              or manage workshop follow-up.
             </p>
           </div>
 
@@ -339,7 +392,7 @@ export default function Dashboard({
               className="dashboard-primary-action"
               onClick={openVehicleSearch}
             >
-              Open Vehicle Search
+              Vehicle Search
             </button>
 
             <button
@@ -349,49 +402,71 @@ export default function Dashboard({
             >
               Add New Vehicle
             </button>
+
+            {isAdmin && (
+              <button
+                type="button"
+                className="dashboard-secondary-action"
+                onClick={openCustomerManagement}
+              >
+                Customer Management
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="dashboard-secondary-action"
+              onClick={openServiceReminders}
+            >
+              Service Reminders
+            </button>
           </div>
         </section>
 
         <section className="dashboard-stat-grid">
           <article className="dashboard-stat-card">
-            <span className="dashboard-stat-icon">V</span>
+            <span className="dashboard-stat-icon">T</span>
 
             <div>
-              <span>Total Vehicles</span>
+              <span>Today's Jobs</span>
 
               <strong>
-                {loading ? '—' : vehicleCount}
+                {loading ? '—' : todayJobs.length}
               </strong>
 
-              <small>Stored vehicle records</small>
+              <small>Visits dated today</small>
             </div>
           </article>
 
           <article className="dashboard-stat-card">
-            <span className="dashboard-stat-icon">C</span>
+            <span className="dashboard-stat-icon">P</span>
 
             <div>
-              <span>Total Customers</span>
+              <span>Waiting for Parts</span>
 
               <strong>
-                {loading ? '—' : customerCount}
+                {loading
+                  ? '—'
+                  : workshopCounts.waitingForParts}
               </strong>
 
-              <small>Unique customer records</small>
+              <small>Paused workshop jobs</small>
             </div>
           </article>
 
           <article className="dashboard-stat-card">
-            <span className="dashboard-stat-icon">S</span>
+            <span className="dashboard-stat-icon">R</span>
 
             <div>
-              <span>Service Visits</span>
+              <span>Ready for Collection</span>
 
               <strong>
-                {loading ? '—' : serviceCount}
+                {loading
+                  ? '—'
+                  : workshopCounts.readyForCollection}
               </strong>
 
-              <small>All recorded workshop visits</small>
+              <small>Completed vehicles</small>
             </div>
           </article>
 
@@ -423,7 +498,7 @@ export default function Dashboard({
 
               <p>
                 Status is based on each vehicle’s latest
-                recorded service visit.
+                service visit.
               </p>
             </div>
           </div>
@@ -431,7 +506,7 @@ export default function Dashboard({
           <div className="dashboard-workshop-grid">
             <article className="dashboard-workshop-card">
               <div className="dashboard-workshop-card-top">
-                <span>In Progress</span>
+                <span>Work in Progress</span>
 
                 <strong>
                   {loading
@@ -454,7 +529,7 @@ export default function Dashboard({
                 </strong>
               </div>
 
-              <p>Jobs paused until required parts arrive.</p>
+              <p>Jobs paused until parts arrive.</p>
             </article>
 
             <article className="dashboard-workshop-card">
@@ -482,237 +557,313 @@ export default function Dashboard({
                 </strong>
               </div>
 
-              <p>Completed vehicles ready for customers.</p>
+              <p>Finished vehicles ready for customers.</p>
             </article>
           </div>
         </section>
 
-        <div className="dashboard-content-grid">
+        <section className="dashboard-section">
+          <div className="dashboard-section-heading">
+            <div>
+              <span className="dashboard-eyebrow">
+                Today
+              </span>
+
+              <h2>Today's Schedule</h2>
+
+              <p>
+                Service visits recorded for today.
+              </p>
+            </div>
+
+            <span className="dashboard-count-badge">
+              {todayJobs.length}
+            </span>
+          </div>
+
+          {loading && (
+            <div className="dashboard-empty-state">
+              Loading today's jobs...
+            </div>
+          )}
+
+          {!loading && todayJobs.length === 0 && (
+            <div className="dashboard-empty-state">
+              <strong>No jobs recorded today</strong>
+
+              <p>
+                New service visits dated today will appear
+                here.
+              </p>
+            </div>
+          )}
+
+          {!loading &&
+            todayJobs.length > 0 && (
+              <div className="dashboard-today-grid">
+                {todayJobs.map((visit) => {
+                  const vehicle = vehicleMap.get(
+                    visit.registration
+                  )
+
+                  return (
+                    <article
+                      key={visit.id}
+                      className="dashboard-today-job"
+                    >
+                      <div className="dashboard-recent-visit-top">
+                        <div>
+                          <strong>
+                            {visit.registration}
+                          </strong>
+
+                          <span>
+                            {vehicle?.customer_name ||
+                              'Customer not recorded'}
+                          </span>
+                        </div>
+
+                        <span
+                          className={getStatusClass(
+                            visit.job_status
+                          )}
+                        >
+                          {visit.job_status ||
+                            'Status not recorded'}
+                        </span>
+                      </div>
+
+                      <div className="dashboard-recent-visit-meta">
+                        <span>
+                          <small>Vehicle</small>
+
+                          <strong>
+                            {[
+                              vehicle?.year,
+                              vehicle?.make,
+                              vehicle?.model,
+                            ]
+                              .filter(Boolean)
+                              .join(' ') ||
+                              'Not recorded'}
+                          </strong>
+                        </span>
+
+                        <span>
+                          <small>Technician</small>
+
+                          <strong>
+                            {visit.technician_name ||
+                              'Not recorded'}
+                          </strong>
+                        </span>
+
+                        <span>
+                          <small>Mileage</small>
+
+                          <strong>
+                            {formatMileage(
+                              visit.mileage,
+                              visit.mileage_unit
+                            )}
+                          </strong>
+                        </span>
+                      </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+        </section>
+
+        <div className="dashboard-priority-three-grid">
           <section className="dashboard-panel">
             <div className="dashboard-section-heading">
               <div>
                 <span className="dashboard-eyebrow">
-                  Follow-up
+                  Recently Added
                 </span>
 
-                <h2>Service Reminders</h2>
+                <h2>Vehicles</h2>
 
-                <p>
-                  Upcoming and overdue customer service
-                  requirements.
-                </p>
+                <p>Latest vehicle records.</p>
               </div>
 
-              {!loading && (
-                <span className="dashboard-count-badge">
-                  {reminders.length} open
-                </span>
-              )}
+              <span className="dashboard-count-badge">
+                {vehicles.length}
+              </span>
             </div>
 
             {loading && (
               <div className="dashboard-empty-state">
-                Loading service reminders...
-              </div>
-            )}
-
-            {!loading && reminders.length === 0 && (
-              <div className="dashboard-empty-state">
-                <strong>No open reminders</strong>
-
-                <p>
-                  All service reminders are currently up to
-                  date.
-                </p>
+                Loading vehicles...
               </div>
             )}
 
             {!loading &&
-              reminders.slice(0, 6).map((reminder) => {
-                const overdue = isReminderOverdue(
-                  reminder.due_date
-                )
+              recentVehicles.length === 0 && (
+                <div className="dashboard-empty-state">
+                  No vehicles have been added.
+                </div>
+              )}
 
-                return (
-                  <article
-                    key={reminder.id}
-                    className={
-                      overdue
-                        ? 'dashboard-reminder dashboard-reminder-overdue'
-                        : 'dashboard-reminder'
-                    }
-                  >
-                    <div className="dashboard-reminder-main">
-                      <div className="dashboard-reminder-title">
-                        <strong>
-                          {reminder.registration}
-                        </strong>
+            {!loading &&
+              recentVehicles.map((vehicle) => (
+                <article
+                  key={vehicle.registration}
+                  className="dashboard-recent-record"
+                >
+                  <div>
+                    <strong>
+                      {vehicle.registration}
+                    </strong>
 
-                        <span
-                          className={
-                            overdue
-                              ? 'dashboard-reminder-label overdue'
-                              : 'dashboard-reminder-label'
-                          }
-                        >
-                          {overdue
-                            ? 'Overdue'
-                            : 'Upcoming'}
-                        </span>
-                      </div>
+                    <span>
+                      {[
+                        vehicle.year,
+                        vehicle.make,
+                        vehicle.model,
+                      ]
+                        .filter(Boolean)
+                        .join(' ') ||
+                        'Vehicle details not recorded'}
+                    </span>
+                  </div>
 
-                      <div className="dashboard-reminder-details">
-                        <span>
-                          <small>Due date</small>
+                  <small>
+                    {vehicle.customer_name ||
+                      'Customer not recorded'}
+                  </small>
+                </article>
+              ))}
 
-                          <strong>
-                            {formatDate(
-                              reminder.due_date
-                            )}
-                          </strong>
-                        </span>
-
-                        <span>
-                          <small>Due mileage</small>
-
-                          <strong>
-                            {reminder.due_mileage != null
-                              ? Number(
-                                  reminder.due_mileage
-                                ).toLocaleString(
-                                  'en-IE'
-                                )
-                              : 'Not set'}
-                          </strong>
-                        </span>
-                      </div>
-
-                      {reminder.notes && (
-                        <p>{reminder.notes}</p>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      className="dashboard-complete-button"
-                      onClick={() =>
-                        completeReminder(reminder.id)
-                      }
-                      disabled={
-                        completingReminderId ===
-                        reminder.id
-                      }
-                    >
-                      {completingReminderId ===
-                      reminder.id
-                        ? 'Saving...'
-                        : 'Mark Complete'}
-                    </button>
-                  </article>
-                )
-              })}
+            <button
+              type="button"
+              className="dashboard-panel-action"
+              onClick={openVehicleSearch}
+            >
+              Open Vehicle Search
+            </button>
           </section>
 
           <section className="dashboard-panel">
             <div className="dashboard-section-heading">
               <div>
                 <span className="dashboard-eyebrow">
-                  Latest Records
+                  Recently Added
                 </span>
 
-                <h2>Recent Service Visits</h2>
+                <h2>Customers</h2>
 
-                <p>
-                  Most recently added workshop records.
-                </p>
+                <p>Latest portal accounts.</p>
               </div>
+
+              <span className="dashboard-count-badge">
+                {customers.length}
+              </span>
             </div>
 
             {loading && (
               <div className="dashboard-empty-state">
-                Loading recent visits...
-              </div>
-            )}
-
-            {!loading && recentVisits.length === 0 && (
-              <div className="dashboard-empty-state">
-                <strong>No service visits yet</strong>
-
-                <p>
-                  Recent workshop jobs will appear here.
-                </p>
+                Loading customers...
               </div>
             )}
 
             {!loading &&
-              recentVisits.map((visit) => (
+              recentCustomers.length === 0 && (
+                <div className="dashboard-empty-state">
+                  No customer portal accounts found.
+                </div>
+              )}
+
+            {!loading &&
+              recentCustomers.map((customer) => (
                 <article
-                  key={visit.id}
-                  className="dashboard-recent-visit"
+                  key={customer.id}
+                  className="dashboard-recent-record"
                 >
-                  <div className="dashboard-recent-visit-top">
-                    <div>
-                      <strong>
-                        {visit.registration ||
-                          'No registration'}
-                      </strong>
+                  <div>
+                    <strong>
+                      {customer.full_name ||
+                        'Customer name not recorded'}
+                    </strong>
 
-                      <span>
-                        {formatDate(
-                          visit.service_date
-                        )}
-                      </span>
-                    </div>
-
-                    <span
-                      className={getStatusClass(
-                        visit.job_status
-                      )}
-                    >
-                      {visit.job_status ||
-                        'Status not recorded'}
+                    <span>
+                      {customer.email ||
+                        'Email not recorded'}
                     </span>
                   </div>
 
-                  <div className="dashboard-recent-visit-meta">
-                    <span>
-                      <small>Technician</small>
-
-                      <strong>
-                        {visit.technician_name ||
-                          'Not recorded'}
-                      </strong>
-                    </span>
-
-                    <span>
-                      <small>Mileage</small>
-
-                      <strong>
-                        {formatMileage(
-                          visit.mileage,
-                          visit.mileage_unit
-                        )}
-                      </strong>
-                    </span>
-                  </div>
-
-                  {visit.completion_summary && (
-                    <p>{visit.completion_summary}</p>
-                  )}
+                  <small>
+                    {customer.active
+                      ? 'Active'
+                      : 'Inactive'}
+                  </small>
                 </article>
               ))}
 
-            {!loading && recentVisits.length > 0 && (
+            {isAdmin && (
               <button
                 type="button"
                 className="dashboard-panel-action"
-                onClick={openVehicleSearch}
+                onClick={openCustomerManagement}
               >
-                Search All Vehicles
+                Open Customer Management
               </button>
             )}
           </section>
         </div>
+
+        <section className="dashboard-section dashboard-reminder-summary">
+          <div className="dashboard-section-heading">
+            <div>
+              <span className="dashboard-eyebrow">
+                Follow-up
+              </span>
+
+              <h2>Service Reminder Summary</h2>
+
+              <p>
+                Overdue and due-today reminders.
+              </p>
+            </div>
+
+            <span className="dashboard-count-badge">
+              {reminderCounts.overdue +
+                reminderCounts.today}
+            </span>
+          </div>
+
+          <div className="dashboard-reminder-summary-grid">
+            <article>
+              <span>Due Today</span>
+
+              <strong>
+                {loading
+                  ? '—'
+                  : reminderCounts.today}
+              </strong>
+            </article>
+
+            <article className="attention">
+              <span>Overdue</span>
+
+              <strong>
+                {loading
+                  ? '—'
+                  : reminderCounts.overdue}
+              </strong>
+            </article>
+          </div>
+
+          <button
+            type="button"
+            className="dashboard-panel-action"
+            onClick={openServiceReminders}
+          >
+            Open Service Reminder Centre
+          </button>
+        </section>
       </div>
     </main>
   )
