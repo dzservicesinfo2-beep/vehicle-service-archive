@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import VehicleSearch from './pages/VehicleSearch'
 import CustomerDashboard from './pages/CustomerDashboard'
+import CustomerManagement from './pages/CustomerManagement'
 import Dashboard from './pages/Dashboard'
 import NewVehicle from './pages/NewVehicle'
 
@@ -24,11 +25,6 @@ function App() {
     useState('dashboard')
 
   useEffect(() => {
-    /*
-     * The reset-password page handles its own Supabase
-     * session. Do not run employee/customer profile logic
-     * while password recovery is taking place.
-     */
     if (isResetPasswordPage) {
       setLoadingProfile(false)
       return
@@ -91,7 +87,7 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
+      (_event, currentSession) => {
         if (!active) return
 
         setSession(currentSession)
@@ -103,10 +99,6 @@ function App() {
           return
         }
 
-        /*
-         * Delay the database request until Supabase has
-         * completed the authentication callback.
-         */
         setTimeout(() => {
           loadProfile(currentSession.user.id)
         }, 0)
@@ -122,9 +114,7 @@ function App() {
   if (isResetPasswordPage) {
     return <ResetPassword />
   }
-if (isResetPasswordPage) {
-  return <ResetPassword />
-}
+
   if (!session) {
     return <Login />
   }
@@ -191,6 +181,19 @@ if (isResetPasswordPage) {
     )
   }
 
+  if (
+    employeePage === 'customer-management' &&
+    profile.role === 'admin'
+  ) {
+    return (
+      <CustomerManagement
+        backToDashboard={() =>
+          setEmployeePage('dashboard')
+        }
+      />
+    )
+  }
+
   if (employeePage === 'vehicle-search') {
     return (
       <VehicleSearch
@@ -215,14 +218,37 @@ if (isResetPasswordPage) {
   }
 
   return (
-    <Dashboard
-      openVehicleSearch={() =>
-        setEmployeePage('vehicle-search')
-      }
-      openNewVehicle={() =>
-        setEmployeePage('new-vehicle')
-      }
-    />
+    <>
+      {profile.role === 'admin' && (
+        <nav className="admin-customer-navigation">
+          <div>
+            <span>Administration</span>
+
+            <strong>Customer Accounts</strong>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setEmployeePage(
+                'customer-management'
+              )
+            }
+          >
+            Open Customer Management
+          </button>
+        </nav>
+      )}
+
+      <Dashboard
+        openVehicleSearch={() =>
+          setEmployeePage('vehicle-search')
+        }
+        openNewVehicle={() =>
+          setEmployeePage('new-vehicle')
+        }
+      />
+    </>
   )
 }
 
