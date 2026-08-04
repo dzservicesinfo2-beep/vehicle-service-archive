@@ -235,18 +235,18 @@ export default function CustomerManagement({
 
     setInviting(true)
 
-    const { data, error } =
-      await supabase.functions.invoke(
-        'invite-customer',
-        {
-          body: {
-            fullName: cleanName,
-            email: cleanEmail,
-            redirectTo:
-              `${window.location.origin}/reset-password`,
-          },
-        }
-      )
+   const { data, error } =
+  await supabase.functions.invoke(
+    'smooth-api',
+    {
+      body: {
+        fullName: cleanName,
+        email: cleanEmail,
+        redirectTo:
+          `${window.location.origin}/reset-password`,
+      },
+    }
+  )
 
     setInviting(false)
 
