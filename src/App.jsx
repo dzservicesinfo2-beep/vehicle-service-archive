@@ -7,15 +7,18 @@ import ResetPassword from './pages/ResetPassword'
 import VehicleSearch from './pages/VehicleSearch'
 import CustomerDashboard from './pages/CustomerDashboard'
 import CustomerManagement from './pages/CustomerManagement'
+import ServiceReminders from './pages/ServiceReminders'
 import Dashboard from './pages/Dashboard'
 import NewVehicle from './pages/NewVehicle'
 
 function App() {
   const isResetPasswordPage =
-    window.location.pathname === '/reset-password'
+    window.location.pathname ===
+    '/reset-password'
 
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
+
   const [loadingProfile, setLoadingProfile] =
     useState(true)
 
@@ -77,7 +80,9 @@ function App() {
         return
       }
 
-      await loadProfile(currentSession.user.id)
+      await loadProfile(
+        currentSession.user.id
+      )
     }
 
     loadSessionAndProfile()
@@ -98,7 +103,9 @@ function App() {
         }
 
         setTimeout(() => {
-          loadProfile(currentSession.user.id)
+          loadProfile(
+            currentSession.user.id
+          )
         }, 0)
       }
     )
@@ -164,7 +171,9 @@ function App() {
         <div className="login-card">
           <h1>Access Denied</h1>
 
-          <p>This account role is not permitted.</p>
+          <p>
+            This account role is not permitted.
+          </p>
 
           <button
             type="button"
@@ -180,7 +189,8 @@ function App() {
   }
 
   if (
-    employeePage === 'customer-management' &&
+    employeePage ===
+      'customer-management' &&
     profile.role === 'admin'
   ) {
     return (
@@ -192,7 +202,28 @@ function App() {
     )
   }
 
-  if (employeePage === 'vehicle-search') {
+  if (
+    employeePage ===
+    'service-reminders'
+  ) {
+    return (
+      <ServiceReminders
+        backToDashboard={() =>
+          setEmployeePage('dashboard')
+        }
+        openVehicleSearch={() =>
+          setEmployeePage(
+            'vehicle-search'
+          )
+        }
+      />
+    )
+  }
+
+  if (
+    employeePage ===
+    'vehicle-search'
+  ) {
     return (
       <VehicleSearch
         backToDashboard={() =>
@@ -202,14 +233,19 @@ function App() {
     )
   }
 
-  if (employeePage === 'new-vehicle') {
+  if (
+    employeePage ===
+    'new-vehicle'
+  ) {
     return (
       <NewVehicle
         backToDashboard={() =>
           setEmployeePage('dashboard')
         }
         openVehicleSearch={() =>
-          setEmployeePage('vehicle-search')
+          setEmployeePage(
+            'vehicle-search'
+          )
         }
       />
     )
@@ -217,30 +253,52 @@ function App() {
 
   return (
     <>
-      {profile.role === 'admin' && (
-        <nav className="admin-customer-navigation">
-          <div>
-            <span>Administration</span>
-            <strong>Customer Accounts</strong>
-          </div>
+      <nav className="admin-customer-navigation">
+        <div>
+          <span>Workshop Navigation</span>
+
+          <strong>
+            Administration and Follow-up
+          </strong>
+        </div>
+
+        <div className="workshop-navigation-actions">
+          {profile.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() =>
+                setEmployeePage(
+                  'customer-management'
+                )
+              }
+            >
+              Customer Management
+            </button>
+          )}
 
           <button
             type="button"
             onClick={() =>
-              setEmployeePage('customer-management')
+              setEmployeePage(
+                'service-reminders'
+              )
             }
           >
-            Open Customer Management
+            Service Reminder Centre
           </button>
-        </nav>
-      )}
+        </div>
+      </nav>
 
       <Dashboard
         openVehicleSearch={() =>
-          setEmployeePage('vehicle-search')
+          setEmployeePage(
+            'vehicle-search'
+          )
         }
         openNewVehicle={() =>
-          setEmployeePage('new-vehicle')
+          setEmployeePage(
+            'new-vehicle'
+          )
         }
       />
     </>
