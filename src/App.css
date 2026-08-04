@@ -5551,3 +5551,158 @@
     width: 100%;
   }
 }
+/* ========================================
+   CUSTOMER INVITATION
+======================================== */
+
+.customer-management-create-button-active {
+  background: #1f54d8;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.customer-management-create-button-active:hover {
+  background: #1947b8;
+}
+
+.customer-management-success {
+  border: 1px solid #abd8b9;
+  background: #effaf2;
+  color: #246b37;
+}
+
+.customer-invite-panel {
+  margin-bottom: 28px;
+  padding: 26px;
+  border: 1px solid #aac0ee;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow: 0 9px 28px rgba(31, 84, 216, 0.09);
+}
+
+.customer-invite-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.customer-invite-heading h2 {
+  margin: 7px 0;
+  color: #172033;
+  font-size: 28px;
+}
+
+.customer-invite-heading p {
+  max-width: 650px;
+  margin: 0;
+  color: #687386;
+  line-height: 1.6;
+}
+
+.customer-invite-close {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #cbd3df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #354054;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.customer-invite-form {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.customer-invite-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.customer-invite-field label {
+  color: #354054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.customer-invite-field input {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 1px solid #cbd3df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  outline: none;
+}
+
+.customer-invite-field input:focus {
+  border-color: #1f54d8;
+  box-shadow: 0 0 0 3px rgba(31, 84, 216, 0.12);
+}
+
+.customer-invite-field input:disabled {
+  cursor: not-allowed;
+  background: #f2f4f7;
+}
+
+.customer-invite-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.customer-invite-actions button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.customer-invite-submit {
+  border: 0;
+  background: #1f54d8;
+  color: #ffffff;
+}
+
+.customer-invite-submit:hover:not(:disabled) {
+  background: #1947b8;
+}
+
+.customer-invite-actions button:disabled,
+.customer-invite-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+@media (max-width: 700px) {
+  .customer-invite-heading {
+    flex-direction: column;
+  }
+
+  .customer-invite-form {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-invite-actions {
+    grid-column: auto;
+    flex-direction: column-reverse;
+  }
+
+  .customer-invite-actions button {
+    width: 100%;
+  }
+}

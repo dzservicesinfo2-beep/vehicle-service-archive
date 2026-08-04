@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 function normaliseEmail(value) {
@@ -14,75 +14,84 @@ export default function CustomerManagement({
   const [expandedCustomerId, setExpandedCustomerId] =
     useState(null)
 
+  const [showInviteForm, setShowInviteForm] =
+    useState(false)
+
+  const [inviteName, setInviteName] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] =
+    useState('')
 
-  useEffect(() => {
-    async function loadCustomers() {
-      setLoading(true)
-      setErrorMessage('')
+  const loadCustomers = useCallback(async () => {
+    setLoading(true)
+    setErrorMessage('')
 
-      const [profilesResult, vehiclesResult] =
-        await Promise.all([
-          supabase
-            .from('profiles')
-            .select(
-              `
-                id,
-                auth_user_id,
-                email,
-                full_name,
-                role,
-                active,
-                created_at
-              `
-            )
-            .eq('role', 'customer')
-            .order('created_at', {
-              ascending: false,
-            }),
+    const [profilesResult, vehiclesResult] =
+      await Promise.all([
+        supabase
+          .from('profiles')
+          .select(
+            `
+              id,
+              auth_user_id,
+              email,
+              full_name,
+              role,
+              active,
+              created_at
+            `
+          )
+          .eq('role', 'customer')
+          .order('created_at', {
+            ascending: false,
+          }),
 
-          supabase
-            .from('vehicles')
-            .select(
-              `
-                registration,
-                customer_name,
-                email,
-                phone,
-                make,
-                model,
-                year
-              `
-            )
-            .order('registration', {
-              ascending: true,
-            }),
-        ])
+        supabase
+          .from('vehicles')
+          .select(
+            `
+              registration,
+              customer_name,
+              email,
+              phone,
+              make,
+              model,
+              year
+            `
+          )
+          .order('registration', {
+            ascending: true,
+          }),
+      ])
 
-      if (profilesResult.error) {
-        setErrorMessage(
-          `Unable to load customers: ${profilesResult.error.message}`
-        )
-        setLoading(false)
-        return
-      }
-
-      if (vehiclesResult.error) {
-        setErrorMessage(
-          `Unable to load customer vehicles: ${vehiclesResult.error.message}`
-        )
-        setLoading(false)
-        return
-      }
-
-      setCustomers(profilesResult.data || [])
-      setVehicles(vehiclesResult.data || [])
+    if (profilesResult.error) {
+      setErrorMessage(
+        `Unable to load customers: ${profilesResult.error.message}`
+      )
       setLoading(false)
+      return
     }
 
-    loadCustomers()
+    if (vehiclesResult.error) {
+      setErrorMessage(
+        `Unable to load customer vehicles: ${vehiclesResult.error.message}`
+      )
+      setLoading(false)
+      return
+    }
+
+    setCustomers(profilesResult.data || [])
+    setVehicles(vehiclesResult.data || [])
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    loadCustomers()
+  }, [loadCustomers])
 
   const customerRecords = useMemo(() => {
     return customers.map((customer) => {
@@ -165,6 +174,121 @@ export default function CustomerManagement({
     )
   }
 
+  function openInviteForm() {
+    setInviteName('')
+    setInviteEmail('')
+    setErrorMessage('')
+    setSuccessMessage('')
+    setShowInviteForm(true)
+  }
+
+  function closeInviteForm() {
+    if (inviting) {
+      return
+    }
+
+    setInviteName('')
+    setInviteEmail('')
+    setErrorMessage('')
+    setShowInviteForm(false)
+  }
+
+  async function inviteCustomer(event) {
+    event.preventDefault()
+
+    const cleanName = inviteName.trim()
+    const cleanEmail = normaliseEmail(inviteEmail)
+
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    if (!cleanName) {
+      setErrorMessage(
+        'Customer or company name is required.'
+      )
+      return
+    }
+
+    if (
+      !cleanEmail ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        cleanEmail
+      )
+    ) {
+      setErrorMessage(
+        'Enter a valid customer email address.'
+      )
+      return
+    }
+
+    const existingCustomer = customers.find(
+      (customer) =>
+        normaliseEmail(customer.email) === cleanEmail
+    )
+
+    if (existingCustomer) {
+      setErrorMessage(
+        'A customer portal already exists for this email address.'
+      )
+      return
+    }
+
+    setInviting(true)
+
+    const { data, error } =
+      await supabase.functions.invoke(
+        'invite-customer',
+        {
+          body: {
+            fullName: cleanName,
+            email: cleanEmail,
+            redirectTo:
+              `${window.location.origin}/reset-password`,
+          },
+        }
+      )
+
+    setInviting(false)
+
+    if (error) {
+      let functionMessage = error.message
+
+      try {
+        const responseBody =
+          await error.context?.json()
+
+        if (responseBody?.error) {
+          functionMessage = responseBody.error
+        }
+      } catch {
+        // Keep the original Edge Function error.
+      }
+
+      setErrorMessage(
+        `Customer invitation failed: ${functionMessage}`
+      )
+      return
+    }
+
+    if (!data?.success) {
+      setErrorMessage(
+        data?.error ||
+          'The customer invitation could not be completed.'
+      )
+      return
+    }
+
+    setInviteName('')
+    setInviteEmail('')
+    setShowInviteForm(false)
+
+    setSuccessMessage(
+      `Invitation sent to ${cleanEmail}. The customer profile has been created.`
+    )
+
+    await loadCustomers()
+  }
+
   async function handleLogout() {
     const { error } = await supabase.auth.signOut()
 
@@ -188,7 +312,7 @@ export default function CustomerManagement({
           </button>
 
           <div>
-            <span>Dz Services Administration</span>
+            <span>DZ Services Administration</span>
 
             <h1>Customer Management</h1>
           </div>
@@ -213,18 +337,17 @@ export default function CustomerManagement({
             <h2>Manage Customer Portal Access</h2>
 
             <p>
-              View customer accounts and the vehicles linked
-              to each portal.
+              Invite customers, view portal accounts and
+              review vehicles linked to each customer.
             </p>
           </div>
 
           <button
             type="button"
-            className="customer-management-create-button"
-            disabled
-            title="Customer invitations will be added in the next stage."
+            className="customer-management-create-button customer-management-create-button-active"
+            onClick={openInviteForm}
           >
-            Invite Customer — Next Stage
+            Invite Customer
           </button>
         </section>
 
@@ -233,10 +356,111 @@ export default function CustomerManagement({
             className="customer-management-message customer-management-error"
             role="alert"
           >
-            <strong>Unable to load customer management</strong>
+            <strong>Action not completed</strong>
 
             <p>{errorMessage}</p>
           </div>
+        )}
+
+        {successMessage && (
+          <div
+            className="customer-management-message customer-management-success"
+            role="status"
+          >
+            <strong>Customer invited</strong>
+
+            <p>{successMessage}</p>
+          </div>
+        )}
+
+        {showInviteForm && (
+          <section className="customer-invite-panel">
+            <div className="customer-invite-heading">
+              <div>
+                <span className="customer-management-eyebrow">
+                  New Portal Account
+                </span>
+
+                <h2>Invite Customer</h2>
+
+                <p>
+                  The customer will receive an email to
+                  activate their account and create a
+                  password.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="customer-invite-close"
+                onClick={closeInviteForm}
+                disabled={inviting}
+              >
+                Close
+              </button>
+            </div>
+
+            <form
+              className="customer-invite-form"
+              onSubmit={inviteCustomer}
+              noValidate
+            >
+              <div className="customer-invite-field">
+                <label htmlFor="invite-customer-name">
+                  Customer or Company Name
+                </label>
+
+                <input
+                  id="invite-customer-name"
+                  type="text"
+                  placeholder="Customer or business name"
+                  value={inviteName}
+                  onChange={(event) =>
+                    setInviteName(event.target.value)
+                  }
+                  disabled={inviting}
+                />
+              </div>
+
+              <div className="customer-invite-field">
+                <label htmlFor="invite-customer-email">
+                  Email Address
+                </label>
+
+                <input
+                  id="invite-customer-email"
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={inviteEmail}
+                  onChange={(event) =>
+                    setInviteEmail(event.target.value)
+                  }
+                  disabled={inviting}
+                />
+              </div>
+
+              <div className="customer-invite-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={closeInviteForm}
+                  disabled={inviting}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="customer-invite-submit"
+                  disabled={inviting}
+                >
+                  {inviting
+                    ? 'Sending Invitation...'
+                    : 'Create and Invite Customer'}
+                </button>
+              </div>
+            </form>
+          </section>
         )}
 
         <section className="customer-management-stats">
@@ -328,7 +552,6 @@ export default function CustomerManagement({
             )}
 
           {!loading &&
-            !errorMessage &&
             filteredCustomers.length > 0 && (
               <div className="customer-management-list">
                 {filteredCustomers.map((customer) => {
@@ -455,8 +678,8 @@ export default function CustomerManagement({
                             {customer.linkedVehicles
                               .length === 0 && (
                               <div className="customer-management-no-vehicles">
-                                No vehicles currently use this
-                                customer’s portal email.
+                                No vehicles currently use
+                                this customer’s portal email.
                               </div>
                             )}
 
