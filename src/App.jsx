@@ -15,6 +15,8 @@ function App() {
     '/reset-password'
 
   const [session, setSession] = useState(null)
+  const isResetPasswordPage =
+  window.location.pathname === '/reset-password'
   const [profile, setProfile] = useState(null)
 
   const [loadingProfile, setLoadingProfile] =
@@ -122,7 +124,9 @@ function App() {
   if (isResetPasswordPage) {
     return <ResetPassword />
   }
-
+if (isResetPasswordPage) {
+  return <ResetPassword />
+}
   if (!session) {
     return <Login />
   }
