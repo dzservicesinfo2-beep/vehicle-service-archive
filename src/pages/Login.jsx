@@ -52,8 +52,8 @@ export default function Login() {
       await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
-          redirectTo:
-            'https://vehicle-service-archive-jc9w.vercel.app/reset-password',
+         redirectTo:
+        'https://vehicle-service-archive-jc9w.vercel.app/reset-password'
         }
       )
 
