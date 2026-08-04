@@ -12,12 +12,10 @@ import NewVehicle from './pages/NewVehicle'
 
 function App() {
   const isResetPasswordPage =
-    window.location.pathname ===
-    '/reset-password'
+    window.location.pathname === '/reset-password'
 
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
-
   const [loadingProfile, setLoadingProfile] =
     useState(true)
 
@@ -223,16 +221,13 @@ function App() {
         <nav className="admin-customer-navigation">
           <div>
             <span>Administration</span>
-
             <strong>Customer Accounts</strong>
           </div>
 
           <button
             type="button"
             onClick={() =>
-              setEmployeePage(
-                'customer-management'
-              )
+              setEmployeePage('customer-management')
             }
           >
             Open Customer Management
