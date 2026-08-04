@@ -48,12 +48,14 @@ export default function Login() {
 
     setResetLoading(true)
 
+    const redirectTo =
+      `${window.location.origin}/reset-password`
+
     const { error } =
       await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
-         redirectTo:
-        'https://vehicle-service-archive-jc9w.vercel.app/reset-password'
+          redirectTo,
         }
       )
 
