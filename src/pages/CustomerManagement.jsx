@@ -1,8 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { supabase } from '../lib/supabase'
 
 function normaliseEmail(value) {
   return String(value || '').trim().toLowerCase()
+}
+
+function readFunctionError(error, fallback) {
+  return error?.message || fallback
 }
 
 export default function CustomerManagement({
@@ -16,10 +25,20 @@ export default function CustomerManagement({
 
   const [showInviteForm, setShowInviteForm] =
     useState(false)
-
   const [inviteName, setInviteName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
+
+  const [editingCustomer, setEditingCustomer] =
+    useState(null)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [savingCustomer, setSavingCustomer] =
+    useState(false)
+
+  const [changingStatusId, setChangingStatusId] =
+    useState(null)
 
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -128,11 +147,11 @@ export default function CustomerManagement({
   }, [customers, vehicles])
 
   const filteredCustomers = useMemo(() => {
-    const cleanSearch = searchText
+    const search = searchText
       .trim()
       .toLowerCase()
 
-    if (!cleanSearch) {
+    if (!search) {
       return customerRecords
     }
 
@@ -149,7 +168,7 @@ export default function CustomerManagement({
         .join(' ')
         .toLowerCase()
 
-      return searchableText.includes(cleanSearch)
+      return searchableText.includes(search)
     })
   }, [customerRecords, searchText])
 
@@ -166,6 +185,11 @@ export default function CustomerManagement({
     0
   )
 
+  function clearMessages() {
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
   function toggleCustomer(customerId) {
     setExpandedCustomerId((currentId) =>
       currentId === customerId
@@ -177,32 +201,47 @@ export default function CustomerManagement({
   function openInviteForm() {
     setInviteName('')
     setInviteEmail('')
-    setErrorMessage('')
-    setSuccessMessage('')
+    setEditingCustomer(null)
+    clearMessages()
     setShowInviteForm(true)
   }
 
   function closeInviteForm() {
-    if (inviting) {
-      return
-    }
+    if (inviting) return
 
     setInviteName('')
     setInviteEmail('')
-    setErrorMessage('')
     setShowInviteForm(false)
+  }
+
+  function openEditCustomer(customer) {
+    setShowInviteForm(false)
+    clearMessages()
+
+    setEditingCustomer(customer)
+    setEditName(customer.displayName || '')
+    setEditEmail(customer.email || '')
+    setEditPhone(customer.phone || '')
+  }
+
+  function closeEditCustomer() {
+    if (savingCustomer) return
+
+    setEditingCustomer(null)
+    setEditName('')
+    setEditEmail('')
+    setEditPhone('')
   }
 
   async function inviteCustomer(event) {
     event.preventDefault()
 
-    const cleanName = inviteName.trim()
-    const cleanEmail = normaliseEmail(inviteEmail)
+    const fullName = inviteName.trim()
+    const email = normaliseEmail(inviteEmail)
 
-    setErrorMessage('')
-    setSuccessMessage('')
+    clearMessages()
 
-    if (!cleanName) {
+    if (!fullName) {
       setErrorMessage(
         'Customer or company name is required.'
       )
@@ -210,10 +249,8 @@ export default function CustomerManagement({
     }
 
     if (
-      !cleanEmail ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        cleanEmail
-      )
+      !email ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     ) {
       setErrorMessage(
         'Enter a valid customer email address.'
@@ -221,12 +258,12 @@ export default function CustomerManagement({
       return
     }
 
-    const existingCustomer = customers.find(
-      (customer) =>
-        normaliseEmail(customer.email) === cleanEmail
-    )
-
-    if (existingCustomer) {
+    if (
+      customers.some(
+        (customer) =>
+          normaliseEmail(customer.email) === email
+      )
+    ) {
       setErrorMessage(
         'A customer portal already exists for this email address.'
       )
@@ -235,37 +272,25 @@ export default function CustomerManagement({
 
     setInviting(true)
 
-   const { data, error } =
-  await supabase.functions.invoke(
-    'smooth-api',
-    {
-      body: {
-        fullName: cleanName,
-        email: cleanEmail,
-        redirectTo:
-          `${window.location.origin}/reset-password`,
-      },
-    }
-  )
+    const { data, error } =
+      await supabase.functions.invoke('smooth-api', {
+        body: {
+          action: 'invite',
+          fullName,
+          email,
+          redirectTo:
+            `${window.location.origin}/reset-password`,
+        },
+      })
 
     setInviting(false)
 
     if (error) {
-      let functionMessage = error.message
-
-      try {
-        const responseBody =
-          await error.context?.json()
-
-        if (responseBody?.error) {
-          functionMessage = responseBody.error
-        }
-      } catch {
-        // Keep the original Edge Function error.
-      }
-
       setErrorMessage(
-        `Customer invitation failed: ${functionMessage}`
+        `Customer invitation failed: ${readFunctionError(
+          error,
+          'Unable to contact the customer-management service.'
+        )}`
       )
       return
     }
@@ -283,7 +308,132 @@ export default function CustomerManagement({
     setShowInviteForm(false)
 
     setSuccessMessage(
-      `Invitation sent to ${cleanEmail}. The customer profile has been created.`
+      `Invitation sent to ${email}. The customer portal was created.`
+    )
+
+    await loadCustomers()
+  }
+
+  async function saveCustomer(event) {
+    event.preventDefault()
+
+    if (!editingCustomer) return
+
+    const fullName = editName.trim()
+    const email = normaliseEmail(editEmail)
+    const phone = editPhone.trim()
+
+    clearMessages()
+
+    if (!fullName) {
+      setErrorMessage(
+        'Customer or company name is required.'
+      )
+      return
+    }
+
+    if (
+      !email ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      setErrorMessage(
+        'Enter a valid customer email address.'
+      )
+      return
+    }
+
+    setSavingCustomer(true)
+
+    const { data, error } =
+      await supabase.functions.invoke('smooth-api', {
+        body: {
+          action: 'update-customer',
+          profileId: editingCustomer.id,
+          authUserId:
+            editingCustomer.auth_user_id,
+          oldEmail: editingCustomer.email,
+          fullName,
+          email,
+          phone,
+        },
+      })
+
+    setSavingCustomer(false)
+
+    if (error) {
+      setErrorMessage(
+        `Customer update failed: ${readFunctionError(
+          error,
+          'Unable to contact the customer-management service.'
+        )}`
+      )
+      return
+    }
+
+    if (!data?.success) {
+      setErrorMessage(
+        data?.error ||
+          'The customer could not be updated.'
+      )
+      return
+    }
+
+    setEditingCustomer(null)
+    setSuccessMessage(
+      `${fullName} was updated successfully.`
+    )
+
+    await loadCustomers()
+  }
+
+  async function changeCustomerStatus(customer) {
+    const newActiveStatus = !customer.active
+
+    const confirmationText = newActiveStatus
+      ? `Activate portal access for ${customer.displayName}?`
+      : `Deactivate portal access for ${customer.displayName}?`
+
+    if (!window.confirm(confirmationText)) {
+      return
+    }
+
+    clearMessages()
+    setChangingStatusId(customer.id)
+
+    const { data, error } =
+      await supabase.functions.invoke('smooth-api', {
+        body: {
+          action: 'set-customer-active',
+          profileId: customer.id,
+          authUserId: customer.auth_user_id,
+          active: newActiveStatus,
+        },
+      })
+
+    setChangingStatusId(null)
+
+    if (error) {
+      setErrorMessage(
+        `Portal status update failed: ${readFunctionError(
+          error,
+          'Unable to contact the customer-management service.'
+        )}`
+      )
+      return
+    }
+
+    if (!data?.success) {
+      setErrorMessage(
+        data?.error ||
+          'The portal status could not be changed.'
+      )
+      return
+    }
+
+    setSuccessMessage(
+      newActiveStatus
+        ? `${customer.displayName} can now access the customer portal.`
+        : `${customer.displayName} can no longer access the customer portal.`
     )
 
     await loadCustomers()
@@ -313,7 +463,6 @@ export default function CustomerManagement({
 
           <div>
             <span>DZ Services Administration</span>
-
             <h1>Customer Management</h1>
           </div>
 
@@ -337,8 +486,9 @@ export default function CustomerManagement({
             <h2>Manage Customer Portal Access</h2>
 
             <p>
-              Invite customers, view portal accounts and
-              review vehicles linked to each customer.
+              Invite customers, edit their account details,
+              control portal access and review linked
+              vehicles.
             </p>
           </div>
 
@@ -357,7 +507,6 @@ export default function CustomerManagement({
             role="alert"
           >
             <strong>Action not completed</strong>
-
             <p>{errorMessage}</p>
           </div>
         )}
@@ -367,8 +516,7 @@ export default function CustomerManagement({
             className="customer-management-message customer-management-success"
             role="status"
           >
-            <strong>Customer invited</strong>
-
+            <strong>Action completed</strong>
             <p>{successMessage}</p>
           </div>
         )}
@@ -413,7 +561,6 @@ export default function CustomerManagement({
                 <input
                   id="invite-customer-name"
                   type="text"
-                  placeholder="Customer or business name"
                   value={inviteName}
                   onChange={(event) =>
                     setInviteName(event.target.value)
@@ -430,7 +577,6 @@ export default function CustomerManagement({
                 <input
                   id="invite-customer-email"
                   type="email"
-                  placeholder="customer@example.com"
                   value={inviteEmail}
                   onChange={(event) =>
                     setInviteEmail(event.target.value)
@@ -463,44 +609,141 @@ export default function CustomerManagement({
           </section>
         )}
 
+        {editingCustomer && (
+          <section className="customer-edit-panel">
+            <div className="customer-invite-heading">
+              <div>
+                <span className="customer-management-eyebrow">
+                  Customer Details
+                </span>
+
+                <h2>Edit Customer</h2>
+
+                <p>
+                  Changes to the email address will also
+                  update the customer login and linked
+                  vehicles.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="customer-invite-close"
+                onClick={closeEditCustomer}
+                disabled={savingCustomer}
+              >
+                Close
+              </button>
+            </div>
+
+            <form
+              className="customer-edit-form"
+              onSubmit={saveCustomer}
+            >
+              <div className="customer-invite-field">
+                <label htmlFor="edit-customer-name">
+                  Customer or Company Name
+                </label>
+
+                <input
+                  id="edit-customer-name"
+                  type="text"
+                  value={editName}
+                  onChange={(event) =>
+                    setEditName(event.target.value)
+                  }
+                  disabled={savingCustomer}
+                  required
+                />
+              </div>
+
+              <div className="customer-invite-field">
+                <label htmlFor="edit-customer-email">
+                  Login Email
+                </label>
+
+                <input
+                  id="edit-customer-email"
+                  type="email"
+                  value={editEmail}
+                  onChange={(event) =>
+                    setEditEmail(event.target.value)
+                  }
+                  disabled={savingCustomer}
+                  required
+                />
+              </div>
+
+              <div className="customer-invite-field">
+                <label htmlFor="edit-customer-phone">
+                  Phone Number
+                </label>
+
+                <input
+                  id="edit-customer-phone"
+                  type="tel"
+                  value={editPhone}
+                  onChange={(event) =>
+                    setEditPhone(event.target.value)
+                  }
+                  disabled={savingCustomer}
+                />
+              </div>
+
+              <div className="customer-edit-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={closeEditCustomer}
+                  disabled={savingCustomer}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="customer-invite-submit"
+                  disabled={savingCustomer}
+                >
+                  {savingCustomer
+                    ? 'Saving Customer...'
+                    : 'Save Customer'}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
         <section className="customer-management-stats">
           <article>
             <span>Total Customers</span>
-
             <strong>
               {loading ? '—' : customerRecords.length}
             </strong>
-
             <p>Registered customer portal accounts</p>
           </article>
 
           <article>
             <span>Active Accounts</span>
-
             <strong>
               {loading ? '—' : activeCustomerCount}
             </strong>
-
             <p>Customers permitted to log in</p>
           </article>
 
           <article>
             <span>Inactive Accounts</span>
-
             <strong>
               {loading ? '—' : inactiveCustomerCount}
             </strong>
-
             <p>Customer access currently disabled</p>
           </article>
 
           <article>
             <span>Linked Vehicles</span>
-
             <strong>
               {loading ? '—' : linkedVehicleCount}
             </strong>
-
             <p>Vehicles connected by customer email</p>
           </article>
         </section>
@@ -511,7 +754,6 @@ export default function CustomerManagement({
               <span className="customer-management-eyebrow">
                 Customer Directory
               </span>
-
               <h2>Customers</h2>
             </div>
 
@@ -539,11 +781,9 @@ export default function CustomerManagement({
           )}
 
           {!loading &&
-            !errorMessage &&
             filteredCustomers.length === 0 && (
               <div className="customer-management-empty">
                 <strong>No customers found</strong>
-
                 <p>
                   No customer accounts match the current
                   search.
@@ -570,11 +810,9 @@ export default function CustomerManagement({
                       <div className="customer-management-card-main">
                         <div className="customer-management-customer">
                           <span>Customer</span>
-
                           <strong>
                             {customer.displayName}
                           </strong>
-
                           <small>
                             {customer.email ||
                               'Email not recorded'}
@@ -583,7 +821,6 @@ export default function CustomerManagement({
 
                         <div className="customer-management-contact">
                           <span>Phone</span>
-
                           <strong>
                             {customer.phone ||
                               'Not recorded'}
@@ -592,7 +829,6 @@ export default function CustomerManagement({
 
                         <div className="customer-management-vehicle-count">
                           <span>Vehicles</span>
-
                           <strong>
                             {
                               customer.linkedVehicles
@@ -615,17 +851,51 @@ export default function CustomerManagement({
                           </span>
                         </div>
 
-                        <button
-                          type="button"
-                          className="customer-management-view-button"
-                          onClick={() =>
-                            toggleCustomer(customer.id)
-                          }
-                        >
-                          {expanded
-                            ? 'Close'
-                            : 'View Customer'}
-                        </button>
+                        <div className="customer-management-card-actions">
+                          <button
+                            type="button"
+                            className="customer-management-view-button"
+                            onClick={() =>
+                              toggleCustomer(customer.id)
+                            }
+                          >
+                            {expanded
+                              ? 'Close'
+                              : 'View'}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="customer-management-edit-button"
+                            onClick={() =>
+                              openEditCustomer(customer)
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className={
+                              customer.active
+                                ? 'customer-management-status-button deactivate'
+                                : 'customer-management-status-button activate'
+                            }
+                            onClick={() =>
+                              changeCustomerStatus(customer)
+                            }
+                            disabled={
+                              changingStatusId ===
+                              customer.id
+                            }
+                          >
+                            {changingStatusId === customer.id
+                              ? 'Saving...'
+                              : customer.active
+                                ? 'Deactivate'
+                                : 'Activate'}
+                          </button>
+                        </div>
                       </div>
 
                       {expanded && (
@@ -633,7 +903,6 @@ export default function CustomerManagement({
                           <div className="customer-management-account-details">
                             <div>
                               <span>Portal email</span>
-
                               <strong>
                                 {customer.email ||
                                   'Not recorded'}
@@ -641,20 +910,24 @@ export default function CustomerManagement({
                             </div>
 
                             <div>
-                              <span>Account role</span>
-
-                              <strong>
-                                {customer.role}
-                              </strong>
-                            </div>
-
-                            <div>
                               <span>Account status</span>
-
                               <strong>
                                 {customer.active
                                   ? 'Active'
                                   : 'Inactive'}
+                              </strong>
+                            </div>
+
+                            <div>
+                              <span>Created</span>
+                              <strong>
+                                {customer.created_at
+                                  ? new Date(
+                                      customer.created_at
+                                    ).toLocaleDateString(
+                                      'en-IE'
+                                    )
+                                  : 'Not recorded'}
                               </strong>
                             </div>
                           </div>
@@ -663,7 +936,6 @@ export default function CustomerManagement({
                             <div className="customer-management-vehicles-heading">
                               <div>
                                 <span>Customer fleet</span>
-
                                 <h3>Linked Vehicles</h3>
                               </div>
 
