@@ -25,20 +25,35 @@ export default function CustomerManagement({
 
   const [showInviteForm, setShowInviteForm] =
     useState(false)
+
   const [inviteName, setInviteName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
 
   const [editingCustomer, setEditingCustomer] =
     useState(null)
+
   const [editName, setEditName] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editPhone, setEditPhone] = useState('')
+
   const [savingCustomer, setSavingCustomer] =
     useState(false)
 
   const [changingStatusId, setChangingStatusId] =
     useState(null)
+
+  const [linkingCustomer, setLinkingCustomer] =
+    useState(null)
+
+  const [vehicleSearchText, setVehicleSearchText] =
+    useState('')
+
+  const [selectedRegistration, setSelectedRegistration] =
+    useState('')
+
+  const [linkingVehicle, setLinkingVehicle] =
+    useState(false)
 
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -136,11 +151,14 @@ export default function CustomerManagement({
 
       return {
         ...customer,
+
         displayName:
           customer.full_name?.trim() ||
           vehicleCustomerName ||
           'Customer name not recorded',
+
         phone: vehiclePhone,
+
         linkedVehicles,
       }
     })
@@ -160,6 +178,7 @@ export default function CustomerManagement({
         customer.displayName,
         customer.email,
         customer.phone,
+
         ...customer.linkedVehicles.map(
           (vehicle) => vehicle.registration
         ),
@@ -171,6 +190,53 @@ export default function CustomerManagement({
       return searchableText.includes(search)
     })
   }, [customerRecords, searchText])
+
+  const availableVehicles = useMemo(() => {
+    const search = vehicleSearchText
+      .trim()
+      .toLowerCase()
+
+    const customerEmails = new Set(
+      customers
+        .map((customer) =>
+          normaliseEmail(customer.email)
+        )
+        .filter(Boolean)
+    )
+
+    return vehicles.filter((vehicle) => {
+      const vehicleEmail = normaliseEmail(
+        vehicle.email
+      )
+
+      const alreadyLinked =
+        vehicleEmail &&
+        customerEmails.has(vehicleEmail)
+
+      if (alreadyLinked) {
+        return false
+      }
+
+      if (!search) {
+        return true
+      }
+
+      const searchableText = [
+        vehicle.registration,
+        vehicle.customer_name,
+        vehicle.email,
+        vehicle.phone,
+        vehicle.make,
+        vehicle.model,
+        vehicle.year,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
+      return searchableText.includes(search)
+    })
+  }, [vehicles, customers, vehicleSearchText])
 
   const activeCustomerCount = customerRecords.filter(
     (customer) => customer.active
@@ -190,6 +256,22 @@ export default function CustomerManagement({
     setSuccessMessage('')
   }
 
+  function closeAllPanels() {
+    setShowInviteForm(false)
+    setEditingCustomer(null)
+    setLinkingCustomer(null)
+
+    setInviteName('')
+    setInviteEmail('')
+
+    setEditName('')
+    setEditEmail('')
+    setEditPhone('')
+
+    setVehicleSearchText('')
+    setSelectedRegistration('')
+  }
+
   function toggleCustomer(customerId) {
     setExpandedCustomerId((currentId) =>
       currentId === customerId
@@ -199,15 +281,15 @@ export default function CustomerManagement({
   }
 
   function openInviteForm() {
-    setInviteName('')
-    setInviteEmail('')
-    setEditingCustomer(null)
+    closeAllPanels()
     clearMessages()
     setShowInviteForm(true)
   }
 
   function closeInviteForm() {
-    if (inviting) return
+    if (inviting) {
+      return
+    }
 
     setInviteName('')
     setInviteEmail('')
@@ -215,22 +297,45 @@ export default function CustomerManagement({
   }
 
   function openEditCustomer(customer) {
-    setShowInviteForm(false)
+    closeAllPanels()
     clearMessages()
 
     setEditingCustomer(customer)
+
     setEditName(customer.displayName || '')
     setEditEmail(customer.email || '')
     setEditPhone(customer.phone || '')
   }
 
   function closeEditCustomer() {
-    if (savingCustomer) return
+    if (savingCustomer) {
+      return
+    }
 
     setEditingCustomer(null)
+
     setEditName('')
     setEditEmail('')
     setEditPhone('')
+  }
+
+  function openVehicleLinker(customer) {
+    closeAllPanels()
+    clearMessages()
+
+    setLinkingCustomer(customer)
+    setVehicleSearchText('')
+    setSelectedRegistration('')
+  }
+
+  function closeVehicleLinker() {
+    if (linkingVehicle) {
+      return
+    }
+
+    setLinkingCustomer(null)
+    setVehicleSearchText('')
+    setSelectedRegistration('')
   }
 
   async function inviteCustomer(event) {
@@ -278,6 +383,7 @@ export default function CustomerManagement({
           action: 'invite',
           fullName,
           email,
+
           redirectTo:
             `${window.location.origin}/reset-password`,
         },
@@ -292,6 +398,7 @@ export default function CustomerManagement({
           'Unable to contact the customer-management service.'
         )}`
       )
+
       return
     }
 
@@ -300,6 +407,7 @@ export default function CustomerManagement({
         data?.error ||
           'The customer invitation could not be completed.'
       )
+
       return
     }
 
@@ -317,7 +425,9 @@ export default function CustomerManagement({
   async function saveCustomer(event) {
     event.preventDefault()
 
-    if (!editingCustomer) return
+    if (!editingCustomer) {
+      return
+    }
 
     const fullName = editName.trim()
     const email = normaliseEmail(editEmail)
@@ -348,10 +458,14 @@ export default function CustomerManagement({
       await supabase.functions.invoke('smooth-api', {
         body: {
           action: 'update-customer',
+
           profileId: editingCustomer.id,
+
           authUserId:
             editingCustomer.auth_user_id,
+
           oldEmail: editingCustomer.email,
+
           fullName,
           email,
           phone,
@@ -367,6 +481,7 @@ export default function CustomerManagement({
           'Unable to contact the customer-management service.'
         )}`
       )
+
       return
     }
 
@@ -375,10 +490,12 @@ export default function CustomerManagement({
         data?.error ||
           'The customer could not be updated.'
       )
+
       return
     }
 
     setEditingCustomer(null)
+
     setSuccessMessage(
       `${fullName} was updated successfully.`
     )
@@ -398,14 +515,19 @@ export default function CustomerManagement({
     }
 
     clearMessages()
+
     setChangingStatusId(customer.id)
 
     const { data, error } =
       await supabase.functions.invoke('smooth-api', {
         body: {
           action: 'set-customer-active',
+
           profileId: customer.id,
-          authUserId: customer.auth_user_id,
+
+          authUserId:
+            customer.auth_user_id,
+
           active: newActiveStatus,
         },
       })
@@ -419,6 +541,7 @@ export default function CustomerManagement({
           'Unable to contact the customer-management service.'
         )}`
       )
+
       return
     }
 
@@ -427,6 +550,7 @@ export default function CustomerManagement({
         data?.error ||
           'The portal status could not be changed.'
       )
+
       return
     }
 
@@ -434,6 +558,89 @@ export default function CustomerManagement({
       newActiveStatus
         ? `${customer.displayName} can now access the customer portal.`
         : `${customer.displayName} can no longer access the customer portal.`
+    )
+
+    await loadCustomers()
+  }
+
+  async function linkVehicle(event) {
+    event.preventDefault()
+
+    if (!linkingCustomer) {
+      return
+    }
+
+    clearMessages()
+
+    if (!selectedRegistration) {
+      setErrorMessage(
+        'Select a vehicle registration first.'
+      )
+
+      return
+    }
+
+    setLinkingVehicle(true)
+
+    const { data, error } =
+      await supabase.functions.invoke('smooth-api', {
+        body: {
+          action: 'link-vehicle',
+
+          profileId: linkingCustomer.id,
+
+          authUserId:
+            linkingCustomer.auth_user_id,
+
+          registration:
+            selectedRegistration,
+
+          customerName:
+            linkingCustomer.displayName,
+
+          email:
+            linkingCustomer.email,
+
+          phone:
+            linkingCustomer.phone,
+        },
+      })
+
+    setLinkingVehicle(false)
+
+    if (error) {
+      setErrorMessage(
+        `Vehicle linking failed: ${readFunctionError(
+          error,
+          'Unable to contact the customer-management service.'
+        )}`
+      )
+
+      return
+    }
+
+    if (!data?.success) {
+      setErrorMessage(
+        data?.error ||
+          'The vehicle could not be linked.'
+      )
+
+      return
+    }
+
+    const linkedRegistration =
+      selectedRegistration
+
+    setLinkingCustomer(null)
+    setSelectedRegistration('')
+    setVehicleSearchText('')
+
+    setExpandedCustomerId(
+      linkingCustomer.id
+    )
+
+    setSuccessMessage(
+      `${linkedRegistration} was linked to ${linkingCustomer.displayName}.`
     )
 
     await loadCustomers()
@@ -463,6 +670,7 @@ export default function CustomerManagement({
 
           <div>
             <span>DZ Services Administration</span>
+
             <h1>Customer Management</h1>
           </div>
 
@@ -486,9 +694,8 @@ export default function CustomerManagement({
             <h2>Manage Customer Portal Access</h2>
 
             <p>
-              Invite customers, edit their account details,
-              control portal access and review linked
-              vehicles.
+              Invite customers, edit account details,
+              control portal access and link vehicles.
             </p>
           </div>
 
@@ -507,6 +714,7 @@ export default function CustomerManagement({
             role="alert"
           >
             <strong>Action not completed</strong>
+
             <p>{errorMessage}</p>
           </div>
         )}
@@ -517,6 +725,7 @@ export default function CustomerManagement({
             role="status"
           >
             <strong>Action completed</strong>
+
             <p>{successMessage}</p>
           </div>
         )}
@@ -532,9 +741,8 @@ export default function CustomerManagement({
                 <h2>Invite Customer</h2>
 
                 <p>
-                  The customer will receive an email to
-                  activate their account and create a
-                  password.
+                  The customer receives an activation email
+                  and creates their own password.
                 </p>
               </div>
 
@@ -620,9 +828,8 @@ export default function CustomerManagement({
                 <h2>Edit Customer</h2>
 
                 <p>
-                  Changes to the email address will also
-                  update the customer login and linked
-                  vehicles.
+                  Customer details and linked vehicles will
+                  remain synchronized.
                 </p>
               </div>
 
@@ -714,37 +921,178 @@ export default function CustomerManagement({
           </section>
         )}
 
+        {linkingCustomer && (
+          <section className="customer-link-panel">
+            <div className="customer-invite-heading">
+              <div>
+                <span className="customer-management-eyebrow">
+                  Vehicle Assignment
+                </span>
+
+                <h2>
+                  Link Vehicle to{' '}
+                  {linkingCustomer.displayName}
+                </h2>
+
+                <p>
+                  Select an existing vehicle. Its customer
+                  name, email and phone will be updated.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="customer-invite-close"
+                onClick={closeVehicleLinker}
+                disabled={linkingVehicle}
+              >
+                Close
+              </button>
+            </div>
+
+            <form
+              className="customer-link-form"
+              onSubmit={linkVehicle}
+            >
+              <div className="customer-invite-field">
+                <label htmlFor="vehicle-link-search">
+                  Search Available Vehicles
+                </label>
+
+                <input
+                  id="vehicle-link-search"
+                  type="text"
+                  placeholder="Registration, make, model or customer"
+                  value={vehicleSearchText}
+                  onChange={(event) =>
+                    setVehicleSearchText(
+                      event.target.value
+                    )
+                  }
+                  disabled={linkingVehicle}
+                />
+              </div>
+
+              <div className="customer-invite-field">
+                <label htmlFor="vehicle-link-registration">
+                  Select Vehicle
+                </label>
+
+                <select
+                  id="vehicle-link-registration"
+                  value={selectedRegistration}
+                  onChange={(event) =>
+                    setSelectedRegistration(
+                      event.target.value
+                    )
+                  }
+                  disabled={linkingVehicle}
+                >
+                  <option value="">
+                    Select a registration
+                  </option>
+
+                  {availableVehicles.map((vehicle) => (
+                    <option
+                      key={vehicle.registration}
+                      value={vehicle.registration}
+                    >
+                      {vehicle.registration}
+                      {' — '}
+                      {[
+                        vehicle.year,
+                        vehicle.make,
+                        vehicle.model,
+                      ]
+                        .filter(Boolean)
+                        .join(' ') ||
+                        'Vehicle details not recorded'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {availableVehicles.length === 0 && (
+                <div className="customer-link-empty">
+                  No unlinked vehicles match the current
+                  search.
+                </div>
+              )}
+
+              <div className="customer-edit-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={closeVehicleLinker}
+                  disabled={linkingVehicle}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="customer-invite-submit"
+                  disabled={
+                    linkingVehicle ||
+                    !selectedRegistration
+                  }
+                >
+                  {linkingVehicle
+                    ? 'Linking Vehicle...'
+                    : 'Link Selected Vehicle'}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
         <section className="customer-management-stats">
           <article>
             <span>Total Customers</span>
+
             <strong>
-              {loading ? '—' : customerRecords.length}
+              {loading
+                ? '—'
+                : customerRecords.length}
             </strong>
-            <p>Registered customer portal accounts</p>
+
+            <p>Registered portal accounts</p>
           </article>
 
           <article>
             <span>Active Accounts</span>
+
             <strong>
-              {loading ? '—' : activeCustomerCount}
+              {loading
+                ? '—'
+                : activeCustomerCount}
             </strong>
+
             <p>Customers permitted to log in</p>
           </article>
 
           <article>
             <span>Inactive Accounts</span>
+
             <strong>
-              {loading ? '—' : inactiveCustomerCount}
+              {loading
+                ? '—'
+                : inactiveCustomerCount}
             </strong>
-            <p>Customer access currently disabled</p>
+
+            <p>Portal access currently disabled</p>
           </article>
 
           <article>
             <span>Linked Vehicles</span>
+
             <strong>
-              {loading ? '—' : linkedVehicleCount}
+              {loading
+                ? '—'
+                : linkedVehicleCount}
             </strong>
-            <p>Vehicles connected by customer email</p>
+
+            <p>Vehicles connected to portals</p>
           </article>
         </section>
 
@@ -754,6 +1102,7 @@ export default function CustomerManagement({
               <span className="customer-management-eyebrow">
                 Customer Directory
               </span>
+
               <h2>Customers</h2>
             </div>
 
@@ -784,6 +1133,7 @@ export default function CustomerManagement({
             filteredCustomers.length === 0 && (
               <div className="customer-management-empty">
                 <strong>No customers found</strong>
+
                 <p>
                   No customer accounts match the current
                   search.
@@ -810,9 +1160,11 @@ export default function CustomerManagement({
                       <div className="customer-management-card-main">
                         <div className="customer-management-customer">
                           <span>Customer</span>
+
                           <strong>
                             {customer.displayName}
                           </strong>
+
                           <small>
                             {customer.email ||
                               'Email not recorded'}
@@ -821,6 +1173,7 @@ export default function CustomerManagement({
 
                         <div className="customer-management-contact">
                           <span>Phone</span>
+
                           <strong>
                             {customer.phone ||
                               'Not recorded'}
@@ -829,6 +1182,7 @@ export default function CustomerManagement({
 
                         <div className="customer-management-vehicle-count">
                           <span>Vehicles</span>
+
                           <strong>
                             {
                               customer.linkedVehicles
@@ -876,6 +1230,16 @@ export default function CustomerManagement({
 
                           <button
                             type="button"
+                            className="customer-management-link-button"
+                            onClick={() =>
+                              openVehicleLinker(customer)
+                            }
+                          >
+                            Link Vehicle
+                          </button>
+
+                          <button
+                            type="button"
                             className={
                               customer.active
                                 ? 'customer-management-status-button deactivate'
@@ -889,7 +1253,8 @@ export default function CustomerManagement({
                               customer.id
                             }
                           >
-                            {changingStatusId === customer.id
+                            {changingStatusId ===
+                            customer.id
                               ? 'Saving...'
                               : customer.active
                                 ? 'Deactivate'
@@ -903,6 +1268,7 @@ export default function CustomerManagement({
                           <div className="customer-management-account-details">
                             <div>
                               <span>Portal email</span>
+
                               <strong>
                                 {customer.email ||
                                   'Not recorded'}
@@ -911,6 +1277,7 @@ export default function CustomerManagement({
 
                             <div>
                               <span>Account status</span>
+
                               <strong>
                                 {customer.active
                                   ? 'Active'
@@ -920,6 +1287,7 @@ export default function CustomerManagement({
 
                             <div>
                               <span>Created</span>
+
                               <strong>
                                 {customer.created_at
                                   ? new Date(
@@ -936,6 +1304,7 @@ export default function CustomerManagement({
                             <div className="customer-management-vehicles-heading">
                               <div>
                                 <span>Customer fleet</span>
+
                                 <h3>Linked Vehicles</h3>
                               </div>
 
@@ -950,8 +1319,8 @@ export default function CustomerManagement({
                             {customer.linkedVehicles
                               .length === 0 && (
                               <div className="customer-management-no-vehicles">
-                                No vehicles currently use
-                                this customer’s portal email.
+                                No vehicles are linked to
+                                this portal.
                               </div>
                             )}
 
