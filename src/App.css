@@ -11,8 +11,7 @@
 
 .app-header {
   width: 100%;
-  background:
-    linear-gradient(
+  background: linear-gradient(
       135deg,
       var(--color-primary-dark),
       var(--color-primary)
@@ -198,15 +197,6 @@
   box-shadow: var(--shadow-card);
 }
 
-.service-visit-card {
-  margin-bottom: 22px;
-  padding: 24px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-large);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card);
-}
-
 .service-visit-card-header {
   display: flex;
   align-items: flex-start;
@@ -282,8 +272,7 @@
   min-height: 100vh;
   place-items: center;
   padding: 24px;
-  background:
-    linear-gradient(
+  background: linear-gradient(
       135deg,
       #eff6ff 0%,
       #f8fafc 45%,
@@ -361,6 +350,7 @@
     width: 100%;
   }
 }
+
 .page-heading {
   margin-bottom: 26px;
   text-align: center;
@@ -429,8 +419,7 @@
 
 .vehicle-results-grid {
   display: grid;
-  grid-template-columns:
-    repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
 }
 
@@ -497,6 +486,7 @@
     width: 100%;
   }
 }
+
 .vehicle-profile {
   width: 100%;
 }
@@ -510,8 +500,7 @@
   padding: 28px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-large);
-  background:
-    linear-gradient(
+  background: linear-gradient(
       135deg,
       var(--color-surface),
       #eff6ff
@@ -669,6 +658,7 @@
     gap: 4px;
   }
 }
+
 .service-form-container {
   width: 100%;
 }
@@ -953,35 +943,10 @@
     flex-direction: column;
   }
 }
-.mileage-input-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
-  gap: 10px;
-  width: 100%;
-}
-
-.mileage-input-row input,
-.mileage-input-row select {
-  width: 100%;
-}
-
-.parts-form-list,
-.part-form-card,
-.parts-form-grid {
-  width: 100%;
-}
 
 .part-form-card {
   margin-right: auto;
   margin-left: auto;
-}
-
-.parts-form-grid {
-  grid-template-columns:
-    minmax(180px, 2fr)
-    minmax(150px, 1.5fr)
-    minmax(100px, 0.7fr)
-    minmax(180px, 2fr);
 }
 
 .service-form-section > .secondary-button {
@@ -990,19 +955,6 @@
   margin-left: auto;
 }
 
-@media (max-width: 920px) {
-  .parts-form-grid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 680px) {
-  .mileage-input-row,
-  .parts-form-grid {
-    grid-template-columns: 1fr;
-  }
-}
 .mileage-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 120px;
@@ -1027,8 +979,7 @@
 }
 
 .parts-form-grid {
-  grid-template-columns:
-    minmax(180px, 2fr)
+  grid-template-columns: minmax(180px, 2fr)
     minmax(150px, 1.5fr)
     minmax(100px, 0.7fr)
     minmax(180px, 2fr);
@@ -1051,6 +1002,7 @@
     grid-template-columns: 1fr;
   }
 }
+
 .vehicle-profile-page {
   width: 100%;
   padding: 36px 24px 64px;
@@ -1310,6 +1262,7 @@
     width: 100%;
   }
 }
+
 /* VEHICLE PROFILE LAYOUT FORCE FIX */
 
 .vehicle-profile-page {
@@ -1530,6 +1483,7 @@
     width: 100% !important;
   }
 }
+
 /* PROFESSIONAL SERVICE HISTORY JOB CARDS */
 
 .service-history-heading {
@@ -1571,8 +1525,7 @@
   margin: 0;
   padding: 26px 28px;
   border-bottom: 1px solid #e2e8f0;
-  background:
-    linear-gradient(
+  background: linear-gradient(
       135deg,
       #f8fafc 0%,
       #eff6ff 100%
@@ -1783,6 +1736,7 @@
     width: 100%;
   }
 }
+
 /* PROFESSIONAL VEHICLE DOCUMENTS AND PHOTOS */
 
 .photo-upload,
@@ -1849,8 +1803,7 @@
   border-radius: 14px;
   background: #f8fafc;
   cursor: pointer;
-  transition:
-    border-color 0.2s ease,
+  transition: border-color 0.2s ease,
     background 0.2s ease,
     transform 0.2s ease;
   box-sizing: border-box;
@@ -1960,8 +1913,7 @@
 
 .photo-gallery-grid {
   display: grid;
-  grid-template-columns:
-    repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 20px;
 }
 
@@ -1972,8 +1924,7 @@
   border-radius: 16px;
   background: #ffffff;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
-  transition:
-    transform 0.2s ease,
+  transition: transform 0.2s ease,
     box-shadow 0.2s ease;
 }
 
@@ -2155,6 +2106,7 @@
     width: 100%;
   }
 }
+
 /* PROFESSIONAL WORKSHOP DASHBOARD */
 
 .workshop-dashboard {
@@ -2228,8 +2180,7 @@
   padding: 32px;
   overflow: hidden;
   border-radius: 20px;
-  background:
-    radial-gradient(
+  background: radial-gradient(
       circle at top right,
       rgba(96, 165, 250, 0.32),
       transparent 35%
@@ -2293,8 +2244,7 @@
 
 .dashboard-stat-grid {
   display: grid;
-  grid-template-columns:
-    repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -2405,8 +2355,7 @@
 
 .dashboard-workshop-grid {
   display: grid;
-  grid-template-columns:
-    repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -2445,8 +2394,7 @@
 
 .dashboard-content-grid {
   display: grid;
-  grid-template-columns:
-    minmax(0, 1.15fr) minmax(0, 0.85fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   align-items: start;
   gap: 24px;
 }
@@ -2665,8 +2613,7 @@
 @media (max-width: 1050px) {
   .dashboard-stat-grid,
   .dashboard-workshop-grid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dashboard-content-grid {
@@ -2731,6 +2678,7 @@
     flex-direction: column;
   }
 }
+
 /* PROFESSIONAL VEHICLE SEARCH */
 
 .vehicle-search-page {
@@ -2826,8 +2774,7 @@
   color: #0f172a;
   font: inherit;
   box-sizing: border-box;
-  transition:
-    border-color 0.2s ease,
+  transition: border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
 
@@ -2923,8 +2870,7 @@
 
 .vehicle-search-grid {
   display: grid;
-  grid-template-columns:
-    repeat(auto-fill, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
   gap: 18px;
 }
 
@@ -2937,8 +2883,7 @@
   border-radius: 16px;
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
-  transition:
-    transform 0.2s ease,
+  transition: transform 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
@@ -3316,6 +3261,7 @@
     grid-template-columns: 1fr;
   }
 }
+
 /* PROFESSIONAL NEW VEHICLE INTAKE */
 
 .new-vehicle-page {
@@ -3519,8 +3465,7 @@
   color: #0f172a;
   font: inherit;
   box-sizing: border-box;
-  transition:
-    border-color 0.2s ease,
+  transition: border-color 0.2s ease,
     box-shadow 0.2s ease,
     background 0.2s ease;
 }
@@ -3702,6 +3647,7 @@
     width: 100%;
   }
 }
+
 /* PROFESSIONAL EDIT VEHICLE FORM */
 
 .edit-vehicle-panel {
@@ -3913,8 +3859,7 @@
   color: #0f172a;
   font: inherit;
   box-sizing: border-box;
-  transition:
-    border-color 0.2s ease,
+  transition: border-color 0.2s ease,
     box-shadow 0.2s ease,
     background 0.2s ease;
 }
@@ -4092,6 +4037,7 @@
     width: 100%;
   }
 }
+
 /* PROFESSIONAL PDF REPORT CONTROL */
 
 .pdf-report-control {
@@ -4115,8 +4061,7 @@
   font-size: 0.82rem;
   font-weight: 800;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
+  transition: background 0.2s ease,
     border-color 0.2s ease,
     transform 0.2s ease,
     box-shadow 0.2s ease;
@@ -4217,12 +4162,12 @@
     width: 100%;
   }
 }
+
 /* CUSTOMER PORTAL */
 
 .customer-portal {
   min-height: 100vh;
-  background:
-    linear-gradient(
+  background: linear-gradient(
       180deg,
       #eef4fb 0,
       #f8fafc 340px,
@@ -4271,8 +4216,7 @@
   color: #ffffff;
   font-weight: 800;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
+  transition: background 0.2s ease,
     border-color 0.2s ease;
 }
 
@@ -4425,8 +4369,7 @@
   border: 1px solid #dce5ef;
   border-radius: 14px;
   background: #ffffff;
-  transition:
-    border-color 0.2s ease,
+  transition: border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
 
@@ -4438,8 +4381,7 @@
 
 .customer-vehicle-card-top {
   display: grid;
-  grid-template-columns:
-    minmax(150px, 0.75fr)
+  grid-template-columns: minmax(150px, 0.75fr)
     minmax(210px, 1.5fr)
     minmax(110px, 0.55fr)
     auto;
@@ -4867,6 +4809,7 @@
     flex-direction: column;
   }
 }
+
 /* ========================================
    PASSWORD RECOVERY
 ======================================== */
@@ -4926,8 +4869,7 @@
   color: #172033;
   font: inherit;
   outline: none;
-  transition:
-    border-color 0.2s ease,
+  transition: border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
 
@@ -4953,8 +4895,7 @@
   font: inherit;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
+  transition: background 0.2s ease,
     transform 0.2s ease;
 }
 
@@ -4994,6 +4935,7 @@
     width: 100%;
   }
 }
+
 .login-card form {
   display: flex;
   flex-direction: column;
@@ -5055,6 +4997,7 @@
   font-size: 14px;
   line-height: 1.5;
 }
+
 /* ========================================
    ADMIN CUSTOMER NAVIGATION
 ======================================== */
@@ -5346,8 +5289,7 @@
 
 .customer-management-card-main {
   display: grid;
-  grid-template-columns:
-    minmax(210px, 2fr)
+  grid-template-columns: minmax(210px, 2fr)
     minmax(130px, 1fr)
     90px
     90px
@@ -5479,8 +5421,7 @@
 
 .customer-management-vehicle-grid {
   display: grid;
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -5551,6 +5492,7 @@
     width: 100%;
   }
 }
+
 /* ========================================
    CUSTOMER INVITATION
 ======================================== */
@@ -5615,8 +5557,7 @@
 
 .customer-invite-form {
   display: grid;
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -5706,6 +5647,7 @@
     width: 100%;
   }
 }
+
 /* ========================================
    CUSTOMER EDITING AND ACCOUNT CONTROLS
 ======================================== */
@@ -5721,8 +5663,7 @@
 
 .customer-edit-form {
   display: grid;
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -5786,8 +5727,7 @@
 }
 
 .customer-management-card-main {
-  grid-template-columns:
-    minmax(190px, 2fr)
+  grid-template-columns: minmax(190px, 2fr)
     minmax(120px, 1fr)
     75px
     85px
@@ -5822,6 +5762,7 @@
     grid-template-columns: 1fr;
   }
 }
+
 /* ========================================
    CUSTOMER VEHICLE LINKING
 ======================================== */
@@ -5837,8 +5778,7 @@
 
 .customer-link-form {
   display: grid;
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -5890,6 +5830,7 @@
     grid-column: auto;
   }
 }
+
 /* ========================================
    PRIORITY 3 DASHBOARD ADDITIONS
 ======================================== */
@@ -5915,8 +5856,7 @@
 
 .dashboard-today-grid {
   display: grid;
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -5929,8 +5869,7 @@
 
 .dashboard-priority-three-grid {
   display: grid;
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 24px;
   margin-bottom: 24px;
@@ -5983,8 +5922,7 @@
 
 .dashboard-reminder-summary-grid {
   display: grid;
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 15px;
   margin-bottom: 18px;
 }
@@ -6047,6 +5985,7 @@
     grid-template-columns: 1fr;
   }
 }
+
 /* ========================================
    PRIORITY 6 SHARED STATUS MESSAGES
 ======================================== */
