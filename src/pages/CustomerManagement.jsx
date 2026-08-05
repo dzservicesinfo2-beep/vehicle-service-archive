@@ -5,6 +5,8 @@ import {
   useState,
 } from 'react'
 import { supabase } from '../lib/supabase'
+import ConfirmDialog from '../components/ConfirmDialog'
+import StatusMessage from '../components/StatusMessage'
 
 function normaliseEmail(value) {
   return String(value || '').trim().toLowerCase()
@@ -41,6 +43,8 @@ export default function CustomerManagement({
     useState(false)
 
   const [changingStatusId, setChangingStatusId] =
+    useState(null)
+  const [pendingStatusCustomer, setPendingStatusCustomer] =
     useState(null)
 
   const [linkingCustomer, setLinkingCustomer] =
@@ -503,18 +507,19 @@ export default function CustomerManagement({
     await loadCustomers()
   }
 
-  async function changeCustomerStatus(customer) {
-    const newActiveStatus = !customer.active
+  function changeCustomerStatus(customer) {
+    clearMessages()
+    setPendingStatusCustomer(customer)
+  }
 
-    const confirmationText = newActiveStatus
-      ? `Activate portal access for ${customer.displayName}?`
-      : `Deactivate portal access for ${customer.displayName}?`
+  async function confirmCustomerStatusChange() {
+    const customer = pendingStatusCustomer
 
-    if (!window.confirm(confirmationText)) {
+    if (!customer || changingStatusId) {
       return
     }
 
-    clearMessages()
+    const newActiveStatus = !customer.active
 
     setChangingStatusId(customer.id)
 
@@ -522,12 +527,8 @@ export default function CustomerManagement({
       await supabase.functions.invoke('smooth-api', {
         body: {
           action: 'set-customer-active',
-
           profileId: customer.id,
-
-          authUserId:
-            customer.auth_user_id,
-
+          authUserId: customer.auth_user_id,
           active: newActiveStatus,
         },
       })
@@ -541,7 +542,6 @@ export default function CustomerManagement({
           'Unable to contact the customer-management service.'
         )}`
       )
-
       return
     }
 
@@ -550,10 +550,10 @@ export default function CustomerManagement({
         data?.error ||
           'The portal status could not be changed.'
       )
-
       return
     }
 
+    setPendingStatusCustomer(null)
     setSuccessMessage(
       newActiveStatus
         ? `${customer.displayName} can now access the customer portal.`
@@ -708,27 +708,19 @@ export default function CustomerManagement({
           </button>
         </section>
 
-        {errorMessage && (
-          <div
-            className="customer-management-message customer-management-error"
-            role="alert"
-          >
-            <strong>Action not completed</strong>
+        <StatusMessage
+          type="error"
+          title="Action not completed"
+          message={errorMessage}
+          onClose={() => setErrorMessage('')}
+        />
 
-            <p>{errorMessage}</p>
-          </div>
-        )}
-
-        {successMessage && (
-          <div
-            className="customer-management-message customer-management-success"
-            role="status"
-          >
-            <strong>Action completed</strong>
-
-            <p>{successMessage}</p>
-          </div>
-        )}
+        <StatusMessage
+          type="success"
+          title="Action completed"
+          message={successMessage}
+          onClose={() => setSuccessMessage('')}
+        />
 
         {showInviteForm && (
           <section className="customer-invite-panel">
@@ -1368,6 +1360,35 @@ export default function CustomerManagement({
               </div>
             )}
         </section>
+      <ConfirmDialog
+        open={Boolean(pendingStatusCustomer)}
+        title={
+          pendingStatusCustomer?.active
+            ? 'Deactivate customer portal'
+            : 'Activate customer portal'
+        }
+        message={
+          pendingStatusCustomer
+            ? pendingStatusCustomer.active
+              ? `Deactivate portal access for ${pendingStatusCustomer.displayName}? The customer will not be able to log in until the account is activated again.`
+              : `Activate portal access for ${pendingStatusCustomer.displayName}?`
+            : ''
+        }
+        confirmLabel={
+          pendingStatusCustomer?.active
+            ? 'Deactivate Portal'
+            : 'Activate Portal'
+        }
+        danger={Boolean(pendingStatusCustomer?.active)}
+        busy={Boolean(changingStatusId)}
+        onCancel={() => {
+          if (!changingStatusId) {
+            setPendingStatusCustomer(null)
+          }
+        }}
+        onConfirm={confirmCustomerStatusChange}
+      />
+
       </main>
     </div>
   )

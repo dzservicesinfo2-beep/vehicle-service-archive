@@ -5,6 +5,8 @@ import {
   useState,
 } from 'react'
 import { supabase } from '../lib/supabase'
+import ConfirmDialog from '../components/ConfirmDialog'
+import StatusMessage from '../components/StatusMessage'
 
 function formatDate(value) {
   if (!value) {
@@ -96,6 +98,8 @@ export default function ServiceReminders({
     useState(false)
 
   const [processingReminderId, setProcessingReminderId] =
+    useState(null)
+  const [pendingDeleteReminder, setPendingDeleteReminder] =
     useState(null)
 
   const [loading, setLoading] = useState(true)
@@ -321,6 +325,45 @@ export default function ServiceReminders({
 
     setSavingReminder(true)
 
+    let duplicateQuery = supabase
+      .from('service_reminders')
+      .select('id')
+      .eq('registration', editingReminder.registration)
+      .eq('status', 'Open')
+      .neq('id', editingReminder.id)
+
+    duplicateQuery = editDueDate
+      ? duplicateQuery.eq('due_date', editDueDate)
+      : duplicateQuery.is('due_date', null)
+
+    duplicateQuery = editDueMileage
+      ? duplicateQuery.eq(
+          'due_mileage',
+          Number(editDueMileage)
+        )
+      : duplicateQuery.is('due_mileage', null)
+
+    const {
+      data: duplicateReminder,
+      error: duplicateError,
+    } = await duplicateQuery.limit(1).maybeSingle()
+
+    if (duplicateError) {
+      setSavingReminder(false)
+      setErrorMessage(
+        `Unable to check for duplicate reminders: ${duplicateError.message}`
+      )
+      return
+    }
+
+    if (duplicateReminder) {
+      setSavingReminder(false)
+      setErrorMessage(
+        'An identical open reminder already exists for this vehicle.'
+      )
+      return
+    }
+
     const { error } = await supabase
       .from('service_reminders')
       .update({
@@ -414,16 +457,18 @@ export default function ServiceReminders({
     await loadReminders()
   }
 
-  async function deleteReminder(reminder) {
-    const confirmed = window.confirm(
-      `Delete the service reminder for ${reminder.registration}?`
-    )
+  function deleteReminder(reminder) {
+    clearMessages()
+    setPendingDeleteReminder(reminder)
+  }
 
-    if (!confirmed) {
+  async function confirmDeleteReminder() {
+    const reminder = pendingDeleteReminder
+
+    if (!reminder || processingReminderId) {
       return
     }
 
-    clearMessages()
     setProcessingReminderId(reminder.id)
 
     const { error } = await supabase
@@ -440,6 +485,7 @@ export default function ServiceReminders({
       return
     }
 
+    setPendingDeleteReminder(null)
     setSuccessMessage(
       `${reminder.registration} reminder was deleted.`
     )
@@ -510,19 +556,19 @@ export default function ServiceReminders({
           </button>
         </section>
 
-        {errorMessage && (
-          <div className="service-reminders-message service-reminders-error">
-            <strong>Action not completed</strong>
-            <p>{errorMessage}</p>
-          </div>
-        )}
+        <StatusMessage
+          type="error"
+          title="Action not completed"
+          message={errorMessage}
+          onClose={() => setErrorMessage('')}
+        />
 
-        {successMessage && (
-          <div className="service-reminders-message service-reminders-success">
-            <strong>Action completed</strong>
-            <p>{successMessage}</p>
-          </div>
-        )}
+        <StatusMessage
+          type="success"
+          title="Action completed"
+          message={successMessage}
+          onClose={() => setSuccessMessage('')}
+        />
 
         {editingReminder && (
           <section className="service-reminder-edit-panel">
@@ -840,16 +886,16 @@ export default function ServiceReminders({
                           <span>Timing</span>
 
                           <strong>
-  {reminder.daysRemaining === null
-    ? 'Date not set'
-    : reminder.daysRemaining < 0
-      ? `${Math.abs(
-          reminder.daysRemaining
-        )} days overdue`
-      : reminder.daysRemaining === 0
-        ? 'Due today'
-        : `${reminder.daysRemaining} days remaining`}
-</strong>
+                            {reminder.daysRemaining === null
+                              ? 'Date not set'
+                              : reminder.daysRemaining < 0
+                                ? `${Math.abs(
+                                    reminder.daysRemaining
+                                  )} days overdue`
+                                : reminder.daysRemaining === 0
+                                  ? 'Due today'
+                                  : `${reminder.daysRemaining} days remaining`}
+                          </strong>
                         </div>
                       </div>
 
@@ -929,6 +975,25 @@ export default function ServiceReminders({
               </div>
             )}
         </section>
+      <ConfirmDialog
+        open={Boolean(pendingDeleteReminder)}
+        title="Delete service reminder"
+        message={
+          pendingDeleteReminder
+            ? `Delete the service reminder for ${pendingDeleteReminder.registration}? This action cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete Reminder"
+        danger
+        busy={Boolean(processingReminderId)}
+        onCancel={() => {
+          if (!processingReminderId) {
+            setPendingDeleteReminder(null)
+          }
+        }}
+        onConfirm={confirmDeleteReminder}
+      />
+
       </main>
     </div>
   )

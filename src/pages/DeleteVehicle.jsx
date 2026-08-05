@@ -1,22 +1,32 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import ConfirmDialog from '../components/ConfirmDialog'
+import StatusMessage from '../components/StatusMessage'
 
 export default function DeleteVehicle({
   vehicle,
   onDeleted,
 }) {
   const [deleting, setDeleting] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] =
+    useState('')
+
+  function requestDeleteVehicle() {
+    setErrorMessage('')
+    setSuccessMessage('')
+    setConfirmOpen(true)
+  }
 
   async function deleteVehicle() {
-    const confirmed = window.confirm(
-      `Delete vehicle ${vehicle.registration}?\n\nThis will also delete its service visits and uploaded photos. This cannot be undone.`
-    )
-
-    if (!confirmed) {
+    if (deleting) {
       return
     }
 
     setDeleting(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
     const { data: photoFiles, error: photoListError } =
       await supabase.storage
@@ -27,7 +37,7 @@ export default function DeleteVehicle({
 
     if (photoListError) {
       setDeleting(false)
-      alert(photoListError.message)
+      setErrorMessage(photoListError.message)
       return
     }
 
@@ -47,7 +57,7 @@ export default function DeleteVehicle({
 
       if (photoDeleteError) {
         setDeleting(false)
-        alert(photoDeleteError.message)
+        setErrorMessage(photoDeleteError.message)
         return
       }
     }
@@ -59,32 +69,46 @@ export default function DeleteVehicle({
 
     if (visitDeleteError) {
       setDeleting(false)
-      alert(visitDeleteError.message)
+      setErrorMessage(visitDeleteError.message)
       return
     }
 
-    const { data: deletedVehicles, error: vehicleDeleteError } =
-      await supabase
-        .from('vehicles')
-        .delete()
-        .eq('registration', vehicle.registration)
-        .select()
+    const { error: reminderDeleteError } = await supabase
+      .from('service_reminders')
+      .delete()
+      .eq('registration', vehicle.registration)
+
+    if (reminderDeleteError) {
+      setDeleting(false)
+      setErrorMessage(reminderDeleteError.message)
+      return
+    }
+
+    const {
+      data: deletedVehicles,
+      error: vehicleDeleteError,
+    } = await supabase
+      .from('vehicles')
+      .delete()
+      .eq('registration', vehicle.registration)
+      .select()
 
     setDeleting(false)
 
     if (vehicleDeleteError) {
-      alert(vehicleDeleteError.message)
+      setErrorMessage(vehicleDeleteError.message)
       return
     }
 
     if (!deletedVehicles || deletedVehicles.length === 0) {
-      alert(
+      setErrorMessage(
         'The vehicle was not deleted. Check the vehicle delete policy in Supabase.'
       )
       return
     }
 
-    alert('Vehicle deleted successfully')
+    setConfirmOpen(false)
+    setSuccessMessage('Vehicle deleted successfully.')
 
     if (onDeleted) {
       onDeleted(vehicle.registration)
@@ -92,36 +116,53 @@ export default function DeleteVehicle({
   }
 
   return (
-    <div
-      style={{
-        marginTop: '40px',
-        paddingTop: '20px',
-        borderTop: '1px solid #ddd',
-      }}
-    >
+    <div className="delete-vehicle-panel">
+      <StatusMessage
+        type="error"
+        title="Action not completed"
+        message={errorMessage}
+        onClose={() => setErrorMessage('')}
+      />
+
+      <StatusMessage
+        type="success"
+        title="Action completed"
+        message={successMessage}
+        onClose={() => setSuccessMessage('')}
+      />
+
       <h2>Delete Vehicle</h2>
 
       <p>
         Permanently delete this vehicle, its service
-        history and its uploaded photos.
+        history, service reminders and uploaded photos.
       </p>
 
       <button
-        onClick={deleteVehicle}
+        type="button"
+        className="danger-button"
+        onClick={requestDeleteVehicle}
         disabled={deleting}
-        style={{
-          backgroundColor: '#b42318',
-          color: 'white',
-          border: 'none',
-          padding: '10px 16px',
-          borderRadius: '6px',
-          cursor: deleting ? 'not-allowed' : 'pointer',
-        }}
       >
         {deleting
           ? 'Deleting Vehicle...'
           : 'Delete Vehicle'}
       </button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title={`Delete ${vehicle.registration}?`}
+        message="This will permanently delete the vehicle, its service visits, service reminders and uploaded photos. This action cannot be undone."
+        confirmLabel="Delete Vehicle"
+        danger
+        busy={deleting}
+        onCancel={() => {
+          if (!deleting) {
+            setConfirmOpen(false)
+          }
+        }}
+        onConfirm={deleteVehicle}
+      />
     </div>
   )
 }

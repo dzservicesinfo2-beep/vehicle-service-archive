@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import EditServiceVisit from './EditServiceVisit'
 import ServiceVisitFiles from './ServiceVisitFiles'
+import ConfirmDialog from '../components/ConfirmDialog'
+import StatusMessage from '../components/StatusMessage'
 
 export default function ServiceHistory({
   registration,
@@ -13,6 +15,11 @@ export default function ServiceHistory({
   const [loading, setLoading] = useState(true)
   const [deletingVisitId, setDeletingVisitId] =
     useState(null)
+  const [pendingDeleteVisit, setPendingDeleteVisit] =
+    useState(null)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] =
+    useState('')
 
   useEffect(() => {
     async function loadVisits() {
@@ -26,10 +33,9 @@ export default function ServiceHistory({
         .order('id', { ascending: false })
 
       if (error) {
-        alert(
+        setErrorMessage(
           `Unable to load service history: ${error.message}`
         )
-
         setLoading(false)
         return
       }
@@ -51,9 +57,8 @@ export default function ServiceHistory({
             .order('created_at', { ascending: true })
 
         if (partsError) {
-          console.error(
-            'Unable to load structured parts:',
-            partsError
+          setErrorMessage(
+            `Service visits loaded, but structured parts could not be loaded: ${partsError.message}`
           )
         }
 
@@ -81,14 +86,16 @@ export default function ServiceHistory({
     loadVisits()
   }, [registration, newVisit])
 
-  async function deleteVisit(visit) {
-    const confirmed = window.confirm(
-      `Delete the service visit dated ${formatDate(
-        visit.service_date
-      )}? This action cannot be undone.`
-    )
+  function requestDeleteVisit(visit) {
+    setErrorMessage('')
+    setSuccessMessage('')
+    setPendingDeleteVisit(visit)
+  }
 
-    if (!confirmed) {
+  async function confirmDeleteVisit() {
+    const visit = pendingDeleteVisit
+
+    if (!visit || deletingVisitId) {
       return
     }
 
@@ -102,10 +109,9 @@ export default function ServiceHistory({
     setDeletingVisitId(null)
 
     if (error) {
-      alert(
+      setErrorMessage(
         `Unable to delete service visit: ${error.message}`
       )
-
       return
     }
 
@@ -117,15 +123,20 @@ export default function ServiceHistory({
 
     setPartsByVisit((currentParts) => {
       const updatedParts = { ...currentParts }
-
       delete updatedParts[visit.id]
-
       return updatedParts
     })
 
     if (editingVisit === visit.id) {
       setEditingVisit(null)
     }
+
+    setPendingDeleteVisit(null)
+    setSuccessMessage(
+      `Service visit dated ${formatDate(
+        visit.service_date
+      )} was deleted.`
+    )
   }
 
   function formatDate(dateValue) {
@@ -195,6 +206,20 @@ export default function ServiceHistory({
 
   return (
     <div className="service-history">
+      <StatusMessage
+        type="error"
+        title="Action not completed"
+        message={errorMessage}
+        onClose={() => setErrorMessage('')}
+      />
+
+      <StatusMessage
+        type="success"
+        title="Action completed"
+        message={successMessage}
+        onClose={() => setSuccessMessage('')}
+      />
+
       <div className="service-history-heading">
         <div>
           <span className="vehicle-section-eyebrow">
@@ -494,7 +519,9 @@ export default function ServiceHistory({
                   <button
                     type="button"
                     className="danger-outline-button"
-                    onClick={() => deleteVisit(visit)}
+                    onClick={() =>
+                      requestDeleteVisit(visit)
+                    }
                     disabled={
                       deletingVisitId === visit.id
                     }
@@ -521,6 +548,27 @@ export default function ServiceHistory({
             </article>
           )
         })}
+      <ConfirmDialog
+        open={Boolean(pendingDeleteVisit)}
+        title="Delete service visit"
+        message={
+          pendingDeleteVisit
+            ? `Delete the service visit dated ${formatDate(
+                pendingDeleteVisit.service_date
+              )}? This action cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete Visit"
+        danger
+        busy={Boolean(deletingVisitId)}
+        onCancel={() => {
+          if (!deletingVisitId) {
+            setPendingDeleteVisit(null)
+          }
+        }}
+        onConfirm={confirmDeleteVisit}
+      />
+
     </div>
   )
 }

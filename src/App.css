@@ -6047,3 +6047,181 @@
     grid-template-columns: 1fr;
   }
 }
+/* ========================================
+   PRIORITY 6 SHARED STATUS MESSAGES
+======================================== */
+
+.status-message {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 11px;
+  box-sizing: border-box;
+}
+
+.status-message strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.status-message p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.status-message-error {
+  border-color: #efb6b6;
+  background: #fff0f0;
+  color: #982b2b;
+}
+
+.status-message-success {
+  border-color: #abd8b9;
+  background: #effaf2;
+  color: #246b37;
+}
+
+.status-message-warning {
+  border-color: #f1cf88;
+  background: #fff8e8;
+  color: #8a5a00;
+}
+
+.status-message-info {
+  border-color: #b9cdf6;
+  background: #eef4ff;
+  color: #1f54a8;
+}
+
+.status-message-close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  color: currentColor;
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ========================================
+   PRIORITY 6 CONFIRMATION DIALOG
+======================================== */
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.58);
+  box-sizing: border-box;
+}
+
+.confirm-dialog {
+  width: min(100%, 500px);
+  padding: 26px;
+  border: 1px solid #dce3ee;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
+}
+
+.confirm-dialog h2 {
+  margin: 0 0 10px;
+  color: #0f172a;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.65;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 11px;
+  margin-top: 24px;
+}
+
+.confirm-dialog-actions button {
+  min-height: 43px;
+  padding: 10px 16px;
+  border-radius: 9px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.confirm-dialog-primary {
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.confirm-dialog-danger,
+.danger-button {
+  border: 1px solid #b42318;
+  background: #b42318;
+  color: #ffffff;
+}
+
+.confirm-dialog-actions button:disabled,
+.danger-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+/* ========================================
+   PRIORITY 6 DELETE VEHICLE
+======================================== */
+
+.delete-vehicle-panel {
+  width: 100%;
+}
+
+.delete-vehicle-panel h2 {
+  margin-top: 0;
+}
+
+.delete-vehicle-panel > p {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.danger-button {
+  min-height: 44px;
+  padding: 10px 17px;
+  border-radius: 9px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  .confirm-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-dialog-actions button,
+  .danger-button {
+    width: 100%;
+  }
+}

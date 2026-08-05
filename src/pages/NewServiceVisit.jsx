@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import StatusMessage from '../components/StatusMessage'
 
 function createEmptyPart() {
   return {
@@ -40,6 +41,8 @@ export default function NewServiceVisit({
 
   const [parts, setParts] = useState([createEmptyPart()])
   const [saving, setSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   function updatePart(index, field, value) {
     setParts((currentParts) =>
@@ -76,6 +79,13 @@ export default function NewServiceVisit({
   async function saveVisit(event) {
     event.preventDefault()
 
+    if (saving) {
+      return
+    }
+
+    setErrorMessage('')
+    setSuccessMessage('')
+
     const hasContent =
       entryReport.trim() ||
       repairsReport.trim() ||
@@ -85,7 +95,9 @@ export default function NewServiceVisit({
       parts.some((part) => part.part_name.trim())
 
     if (!hasContent) {
-      alert('Enter service details or at least one part.')
+      setErrorMessage(
+        'Enter service details or at least one part.'
+      )
       return
     }
 
@@ -145,7 +157,7 @@ export default function NewServiceVisit({
     if (visitError) {
       setSaving(false)
 
-      alert(
+      setErrorMessage(
         `Unable to save service visit: ${visitError.message}`
       )
 
@@ -168,7 +180,7 @@ export default function NewServiceVisit({
       if (partsError) {
         setSaving(false)
 
-        alert(
+        setErrorMessage(
           `The service visit was saved, but its parts could not be saved: ${partsError.message}`
         )
 
@@ -176,36 +188,74 @@ export default function NewServiceVisit({
       }
     }
 
+    let duplicateReminderSkipped = false
+
     if (nextServiceDueDate || nextServiceDueMileage) {
-      const { error: reminderError } = await supabase
+      let duplicateQuery = supabase
         .from('service_reminders')
-        .insert([
-          {
-            registration: vehicle.registration,
-            source_service_visit_id: visit.id,
-            due_date: nextServiceDueDate || null,
+        .select('id')
+        .eq('registration', vehicle.registration)
+        .eq('status', 'Open')
 
-            due_mileage: nextServiceDueMileage
-              ? Number(nextServiceDueMileage)
-              : null,
+      duplicateQuery = nextServiceDueDate
+        ? duplicateQuery.eq(
+            'due_date',
+            nextServiceDueDate
+          )
+        : duplicateQuery.is('due_date', null)
 
-            due_mileage_unit:
-              nextServiceDueMileageUnit,
+      duplicateQuery = nextServiceDueMileage
+        ? duplicateQuery.eq(
+            'due_mileage',
+            Number(nextServiceDueMileage)
+          )
+        : duplicateQuery.is('due_mileage', null)
 
-            reminder_type: 'Service',
-            notes: completionSummary.trim() || null,
-            status: 'Open',
-          },
-        ])
+      const {
+        data: existingReminder,
+        error: duplicateReminderError,
+      } = await duplicateQuery.limit(1).maybeSingle()
 
-      if (reminderError) {
+      if (duplicateReminderError) {
         setSaving(false)
-
-        alert(
-          `The service visit was saved, but its reminder could not be saved: ${reminderError.message}`
+        setErrorMessage(
+          `The service visit was saved, but the reminder could not be checked: ${duplicateReminderError.message}`
         )
-
         return
+      }
+
+      if (existingReminder) {
+        duplicateReminderSkipped = true
+      } else {
+        const { error: reminderError } = await supabase
+          .from('service_reminders')
+          .insert([
+            {
+              registration: vehicle.registration,
+              source_service_visit_id: visit.id,
+              due_date: nextServiceDueDate || null,
+
+              due_mileage: nextServiceDueMileage
+                ? Number(nextServiceDueMileage)
+                : null,
+
+              due_mileage_unit:
+                nextServiceDueMileageUnit,
+
+              reminder_type: 'Service',
+              notes:
+                completionSummary.trim() || null,
+              status: 'Open',
+            },
+          ])
+
+        if (reminderError) {
+          setSaving(false)
+          setErrorMessage(
+            `The service visit was saved, but its reminder could not be saved: ${reminderError.message}`
+          )
+          return
+        }
       }
     }
 
@@ -230,11 +280,29 @@ export default function NewServiceVisit({
       onVisitAdded(visit)
     }
 
-    alert('Service visit saved successfully.')
+    setSuccessMessage(
+      duplicateReminderSkipped
+        ? 'Service visit saved. An identical open reminder already existed, so no duplicate reminder was created.'
+        : 'Service visit saved successfully.'
+    )
   }
 
   return (
     <div className="service-form-container">
+      <StatusMessage
+        type="error"
+        title="Action not completed"
+        message={errorMessage}
+        onClose={() => setErrorMessage('')}
+      />
+
+      <StatusMessage
+        type="success"
+        title="Action completed"
+        message={successMessage}
+        onClose={() => setSuccessMessage('')}
+      />
+
       <div className="service-form-heading">
         <div>
           <h3>Add Service Visit</h3>
