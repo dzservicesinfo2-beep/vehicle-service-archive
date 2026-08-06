@@ -4,6 +4,7 @@ import VehicleProfile from './VehicleProfile'
 
 export default function VehicleSearch({
   backToDashboard,
+  canDeleteVehicle = false,
 }) {
   const [searchText, setSearchText] = useState('')
   const [vehicles, setVehicles] = useState([])
@@ -353,6 +354,7 @@ export default function VehicleSearch({
               vehicle={selectedVehicle}
               onVehicleDeleted={handleVehicleDeleted}
               onVehicleUpdated={handleVehicleUpdated}
+              canDeleteVehicle={canDeleteVehicle}
             />
           </>
         ) : (

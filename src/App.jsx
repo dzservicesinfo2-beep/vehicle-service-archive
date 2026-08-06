@@ -180,10 +180,10 @@ function App() {
     )
   }
 
-  if (
-    employeePage === 'customer-management' &&
+  const canDeleteVehicle =
     profile.role === 'admin'
-  ) {
+
+  if (employeePage === 'customer-management') {
     return (
       <CustomerManagement
         backToDashboard={() =>
@@ -212,6 +212,7 @@ function App() {
         backToDashboard={() =>
           setEmployeePage('dashboard')
         }
+        canDeleteVehicle={canDeleteVehicle}
       />
     )
   }
@@ -243,7 +244,10 @@ function App() {
       openServiceReminders={() =>
         setEmployeePage('service-reminders')
       }
-      isAdmin={profile.role === 'admin'}
+      isAdmin={
+        profile.role === 'admin' ||
+        profile.role === 'employee'
+      }
     />
   )
 }

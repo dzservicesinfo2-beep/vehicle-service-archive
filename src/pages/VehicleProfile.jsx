@@ -12,13 +12,18 @@ export default function VehicleProfile({
   vehicle,
   onVehicleDeleted,
   onVehicleUpdated,
+  canDeleteVehicle = false,
 }) {
   const [newVisit, setNewVisit] = useState(null)
   const [newPhoto, setNewPhoto] = useState(null)
+
   const [showEditVehicle, setShowEditVehicle] =
     useState(false)
-  const [showNewServiceVisit, setShowNewServiceVisit] =
-    useState(false)
+
+  const [
+    showNewServiceVisit,
+    setShowNewServiceVisit,
+  ] = useState(false)
 
   if (!vehicle) {
     return null
@@ -315,27 +320,29 @@ export default function VehicleProfile({
           />
         </section>
 
-        <section className="vehicle-danger-panel">
-          <div className="vehicle-section-heading">
-            <div>
-              <span className="vehicle-section-eyebrow">
-                Permanent Action
-              </span>
+        {canDeleteVehicle && (
+          <section className="vehicle-danger-panel">
+            <div className="vehicle-section-heading">
+              <div>
+                <span className="vehicle-section-eyebrow">
+                  Permanent Action
+                </span>
 
-              <h2>Delete Vehicle</h2>
+                <h2>Delete Vehicle</h2>
 
-              <p>
-                Permanently remove this vehicle and its
-                associated records.
-              </p>
+                <p>
+                  Permanently remove this vehicle and its
+                  associated records.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <DeleteVehicle
-            vehicle={vehicle}
-            onDeleted={onVehicleDeleted}
-          />
-        </section>
+            <DeleteVehicle
+              vehicle={vehicle}
+              onDeleted={onVehicleDeleted}
+            />
+          </section>
+        )}
       </div>
     </main>
   )
