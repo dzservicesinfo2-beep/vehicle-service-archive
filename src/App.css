@@ -1263,7 +1263,7 @@
   }
 }
 
-/* VEHICLE PROFILE LAYOUT FORCE FIX */
+/* VEHICLE PROFILE */
 
 .vehicle-profile-page {
   width: 100% !important;
@@ -1484,7 +1484,7 @@
   }
 }
 
-/* PROFESSIONAL SERVICE HISTORY JOB CARDS */
+/* SERVICE HISTORY JOB CARDS */
 
 .service-history-heading {
   padding-bottom: 22px;
@@ -1737,7 +1737,7 @@
   }
 }
 
-/* PROFESSIONAL VEHICLE DOCUMENTS AND PHOTOS */
+/* VEHICLE DOCUMENTS AND PHOTOS */
 
 .photo-upload,
 .photo-gallery {
@@ -2107,7 +2107,7 @@
   }
 }
 
-/* PROFESSIONAL WORKSHOP DASHBOARD */
+/* WORKSHOP DASHBOARD */
 
 .workshop-dashboard {
   width: 100%;
@@ -2679,7 +2679,7 @@
   }
 }
 
-/* PROFESSIONAL VEHICLE SEARCH */
+/* VEHICLE SEARCH */
 
 .vehicle-search-page {
   min-height: 100vh;
@@ -3262,7 +3262,7 @@
   }
 }
 
-/* PROFESSIONAL NEW VEHICLE INTAKE */
+/* NEW VEHICLE INTAKE */
 
 .new-vehicle-page {
   min-height: 100vh;
@@ -3648,7 +3648,7 @@
   }
 }
 
-/* PROFESSIONAL EDIT VEHICLE FORM */
+/* EDIT VEHICLE FORM */
 
 .edit-vehicle-panel {
   margin-top: 28px;
@@ -4038,7 +4038,7 @@
   }
 }
 
-/* PROFESSIONAL PDF REPORT CONTROL */
+/* PDF REPORT CONTROL */
 
 .pdf-report-control {
   display: flex;
@@ -5832,7 +5832,7 @@
 }
 
 /* ========================================
-   PRIORITY 3 DASHBOARD ADDITIONS
+   DASHBOARD ADDITIONS
 ======================================== */
 
 .dashboard-error-message {
@@ -5987,7 +5987,7 @@
 }
 
 /* ========================================
-   PRIORITY 6 SHARED STATUS MESSAGES
+   SHARED STATUS MESSAGES
 ======================================== */
 
 .status-message {
@@ -6052,7 +6052,7 @@
 }
 
 /* ========================================
-   PRIORITY 6 CONFIRMATION DIALOG
+   CONFIRMATION DIALOG
 ======================================== */
 
 .confirm-dialog-backdrop {
@@ -6122,7 +6122,7 @@
 }
 
 /* ========================================
-   PRIORITY 6 DELETE VEHICLE
+   DELETE VEHICLE
 ======================================== */
 
 .delete-vehicle-panel {
@@ -6164,9 +6164,10 @@ textarea:disabled {
     width: 100%;
   }
 }
-/* =========================================================
+
+/* ========================================
    SERVICE REMINDER CENTRE
-   ========================================================= */
+======================================== */
 
 .service-reminders-page {
   width: 100%;
@@ -6409,7 +6410,9 @@ textarea:disabled {
 
 .service-reminders-tools {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(220px, 0.7fr);
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(220px, 0.7fr);
   gap: 18px;
   margin-bottom: 24px;
 }
@@ -6631,4 +6634,62 @@ textarea:disabled {
   .service-reminder-actions button {
     width: 100%;
   }
+}
+
+/* ========================================
+   FINAL INTERFACE POLISH
+======================================== */
+
+button,
+input,
+select,
+textarea {
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.24);
+  outline-offset: 2px;
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.dashboard-page,
+.vehicle-profile-page,
+.vehicle-search-container,
+.customer-management-container,
+.service-reminders-container {
+  box-sizing: border-box;
+}
+
+.dashboard-stat-card,
+.vehicle-summary-card,
+.vehicle-profile-panel,
+.service-visit-card,
+.vehicle-search-result-card,
+.customer-management-card,
+.service-reminder-card {
+  -webkit-font-smoothing: antialiased;
+}
+
+.status-message,
+.confirm-dialog,
+.customer-management-success,
+.dashboard-error-message {
+  overflow-wrap: anywhere;
 }
