@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+
+const DRAFT_KEY = 'dzservices:new-vehicle-draft'
 
 const initialForm = {
   registration: '',
@@ -17,13 +19,48 @@ export default function NewVehicle({
   backToDashboard,
   openVehicleSearch,
 }) {
-  const [form, setForm] = useState(initialForm)
+  const [form, setForm] = useState(() => {
+    try {
+      const savedDraft = window.localStorage.getItem(DRAFT_KEY)
+
+      if (!savedDraft) {
+        return initialForm
+      }
+
+      return {
+        ...initialForm,
+        ...JSON.parse(savedDraft),
+      }
+    } catch {
+      return initialForm
+    }
+  })
+
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] =
     useState('')
 
   const currentYear = new Date().getFullYear()
+
+  useEffect(() => {
+    const hasDraftData = Object.values(form).some((value) =>
+      String(value ?? '').trim()
+    )
+
+    try {
+      if (hasDraftData) {
+        window.localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify(form)
+        )
+      } else {
+        window.localStorage.removeItem(DRAFT_KEY)
+      }
+    } catch {
+      // Ignore local storage errors and keep the form usable.
+    }
+  }, [form])
 
   const registrationPreview = useMemo(() => {
     return formatRegistration(form.registration)
@@ -182,6 +219,13 @@ export default function NewVehicle({
     }
 
     setForm(initialForm)
+
+    try {
+      window.localStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // Ignore local storage errors after a successful save.
+    }
+
     setSuccessMessage(
       `${cleanRegistration} was added successfully.`
     )
@@ -195,6 +239,12 @@ export default function NewVehicle({
     setForm(initialForm)
     setFormError('')
     setSuccessMessage('')
+
+    try {
+      window.localStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // Ignore local storage errors while clearing the form.
+    }
   }
 
   return (
