@@ -12,7 +12,27 @@ function normaliseEmail(value) {
   return String(value || '').trim().toLowerCase()
 }
 
-function readFunctionError(error, fallback) {
+async function readFunctionError(error, fallback) {
+  try {
+    if (
+      error?.context &&
+      typeof error.context.json === 'function'
+    ) {
+      const responseBody = await error.context.json()
+
+      if (responseBody?.error) {
+        return responseBody.error
+      }
+
+      if (responseBody?.message) {
+        return responseBody.message
+      }
+    }
+  } catch {
+    // If the Edge Function response body cannot be read,
+    // fall back to the normal Supabase error message below.
+  }
+
   return error?.message || fallback
 }
 
@@ -397,7 +417,7 @@ export default function CustomerManagement({
 
     if (error) {
       setErrorMessage(
-        `Customer invitation failed: ${readFunctionError(
+        `Customer invitation failed: ${await readFunctionError(
           error,
           'Unable to contact the customer-management service.'
         )}`
@@ -480,7 +500,7 @@ export default function CustomerManagement({
 
     if (error) {
       setErrorMessage(
-        `Customer update failed: ${readFunctionError(
+        `Customer update failed: ${await readFunctionError(
           error,
           'Unable to contact the customer-management service.'
         )}`
@@ -537,7 +557,7 @@ export default function CustomerManagement({
 
     if (error) {
       setErrorMessage(
-        `Portal status update failed: ${readFunctionError(
+        `Portal status update failed: ${await readFunctionError(
           error,
           'Unable to contact the customer-management service.'
         )}`
@@ -610,7 +630,7 @@ export default function CustomerManagement({
 
     if (error) {
       setErrorMessage(
-        `Vehicle linking failed: ${readFunctionError(
+        `Vehicle linking failed: ${await readFunctionError(
           error,
           'Unable to contact the customer-management service.'
         )}`
