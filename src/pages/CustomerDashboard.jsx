@@ -575,13 +575,144 @@ export default function CustomerDashboard() {
                 <h2>Contact DZ Services</h2>
 
                 <p>
-                  Contact the workshop if vehicle information
-                  is missing or needs to be updated.
+                  Choose the correct contact option below so we
+                  can help you as quickly as possible.
                 </p>
               </div>
 
-              <div className="customer-portal-support-badge">
-                Van &amp; Light Commercial Repairs
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(2, minmax(0, 1fr))',
+                  gap: '14px',
+                  width: 'min(100%, 620px)',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '16px',
+                    border: '1px solid #334155',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.04)',
+                  }}
+                >
+                  <strong
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      color: '#ffffff',
+                    }}
+                  >
+                    Account &amp; Portal Questions
+                  </strong>
+
+                  <p
+                    style={{
+                      margin: '0 0 12px',
+                      color: '#94a3b8',
+                      fontSize: '0.88rem',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    For login help, account access, password
+                    questions or customer portal details.
+                  </p>
+
+                  <a
+                    href="mailto:dzservicesinfo2@gmail.com"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: '40px',
+                      padding: '0 14px',
+                      border: '1px solid #60a5fa',
+                      borderRadius: '9px',
+                      background: '#2563eb',
+                      color: '#ffffff',
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Email Account Support
+                  </a>
+
+                  <div
+                    style={{
+                      marginTop: '9px',
+                      color: '#bfdbfe',
+                      fontSize: '0.76rem',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    dzservicesinfo2@gmail.com
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '16px',
+                    border: '1px solid #334155',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.04)',
+                  }}
+                >
+                  <strong
+                    style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      color: '#ffffff',
+                    }}
+                  >
+                    Vehicle &amp; Repair Updates
+                  </strong>
+
+                  <p
+                    style={{
+                      margin: '0 0 12px',
+                      color: '#94a3b8',
+                      fontSize: '0.88rem',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    For repair progress, vehicle updates,
+                    collection times or workshop questions,
+                    please call us directly.
+                  </p>
+
+                  <a
+                    href="tel:+353851300384"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minHeight: '40px',
+                      padding: '0 14px',
+                      border: '1px solid #86efac',
+                      borderRadius: '9px',
+                      background: '#15803d',
+                      color: '#ffffff',
+                      fontSize: '0.85rem',
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Call the Workshop
+                  </a>
+
+                  <div
+                    style={{
+                      marginTop: '9px',
+                      color: '#bbf7d0',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                    }}
+                  >
+                    085 130 0384
+                  </div>
+                </div>
               </div>
             </section>
           </>
