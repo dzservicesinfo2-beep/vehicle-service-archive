@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import StatusMessage from '../components/StatusMessage'
 
@@ -11,38 +11,143 @@ function createEmptyPart() {
   }
 }
 
+function getDraftStorageKey(registration) {
+  return `dz-services:new-service-draft:${registration}`
+}
+
+function loadDraft(registration) {
+  if (!registration) {
+    return null
+  }
+
+  try {
+    const savedDraft = window.sessionStorage.getItem(
+      getDraftStorageKey(registration)
+    )
+
+    if (!savedDraft) {
+      return null
+    }
+
+    const parsedDraft = JSON.parse(savedDraft)
+
+    return {
+      entryReport: parsedDraft.entryReport || '',
+      repairsReport: parsedDraft.repairsReport || '',
+      completionSummary:
+        parsedDraft.completionSummary || '',
+      mileage: parsedDraft.mileage || '',
+      mileageUnit: parsedDraft.mileageUnit || 'KM',
+      technicianName: parsedDraft.technicianName || '',
+      jobStatus: parsedDraft.jobStatus || 'Completed',
+      nextServiceDueDate:
+        parsedDraft.nextServiceDueDate || '',
+      nextServiceDueMileage:
+        parsedDraft.nextServiceDueMileage || '',
+      nextServiceDueMileageUnit:
+        parsedDraft.nextServiceDueMileageUnit || 'KM',
+      parts:
+        Array.isArray(parsedDraft.parts) &&
+        parsedDraft.parts.length > 0
+          ? parsedDraft.parts
+          : [createEmptyPart()],
+    }
+  } catch {
+    return null
+  }
+}
+
 export default function NewServiceVisit({
   vehicle,
   onVisitAdded,
 }) {
-  const [entryReport, setEntryReport] = useState('')
-  const [repairsReport, setRepairsReport] = useState('')
+  const initialDraft = useMemo(
+    () => loadDraft(vehicle?.registration),
+    [vehicle?.registration]
+  )
+
+  const [entryReport, setEntryReport] = useState(
+    initialDraft?.entryReport || ''
+  )
+  const [repairsReport, setRepairsReport] = useState(
+    initialDraft?.repairsReport || ''
+  )
   const [completionSummary, setCompletionSummary] =
-    useState('')
+    useState(initialDraft?.completionSummary || '')
 
-  const [mileage, setMileage] = useState('')
-  const [mileageUnit, setMileageUnit] = useState('KM')
+  const [mileage, setMileage] = useState(
+    initialDraft?.mileage || ''
+  )
+  const [mileageUnit, setMileageUnit] = useState(
+    initialDraft?.mileageUnit || 'KM'
+  )
 
-  const [technicianName, setTechnicianName] = useState('')
-  const [jobStatus, setJobStatus] = useState('Completed')
+  const [technicianName, setTechnicianName] = useState(
+    initialDraft?.technicianName || ''
+  )
+  const [jobStatus, setJobStatus] = useState(
+    initialDraft?.jobStatus || 'Completed'
+  )
 
   const [nextServiceDueDate, setNextServiceDueDate] =
-    useState('')
+    useState(initialDraft?.nextServiceDueDate || '')
 
   const [
     nextServiceDueMileage,
     setNextServiceDueMileage,
-  ] = useState('')
+  ] = useState(initialDraft?.nextServiceDueMileage || '')
 
   const [
     nextServiceDueMileageUnit,
     setNextServiceDueMileageUnit,
-  ] = useState('KM')
+  ] = useState(
+    initialDraft?.nextServiceDueMileageUnit || 'KM'
+  )
 
-  const [parts, setParts] = useState([createEmptyPart()])
+  const [parts, setParts] = useState(
+    initialDraft?.parts || [createEmptyPart()]
+  )
   const [saving, setSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+
+  useEffect(() => {
+    if (!vehicle?.registration) {
+      return
+    }
+
+    const draft = {
+      entryReport,
+      repairsReport,
+      completionSummary,
+      mileage,
+      mileageUnit,
+      technicianName,
+      jobStatus,
+      nextServiceDueDate,
+      nextServiceDueMileage,
+      nextServiceDueMileageUnit,
+      parts,
+    }
+
+    window.sessionStorage.setItem(
+      getDraftStorageKey(vehicle.registration),
+      JSON.stringify(draft)
+    )
+  }, [
+    vehicle?.registration,
+    entryReport,
+    repairsReport,
+    completionSummary,
+    mileage,
+    mileageUnit,
+    technicianName,
+    jobStatus,
+    nextServiceDueDate,
+    nextServiceDueMileage,
+    nextServiceDueMileageUnit,
+    parts,
+  ])
 
   function updatePart(index, field, value) {
     setParts((currentParts) =>
@@ -274,6 +379,11 @@ export default function NewServiceVisit({
     setNextServiceDueMileageUnit('KM')
 
     setParts([createEmptyPart()])
+
+    window.sessionStorage.removeItem(
+      getDraftStorageKey(vehicle.registration)
+    )
+
     setSaving(false)
 
     if (onVisitAdded) {

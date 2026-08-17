@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import VehicleProfile from './VehicleProfile'
 
+const SELECTED_VEHICLE_STORAGE_KEY =
+  'dz-services:selected-vehicle-registration'
+
 export default function VehicleSearch({
   backToDashboard,
   canDeleteVehicle = false,
@@ -13,6 +16,46 @@ export default function VehicleSearch({
   const [searching, setSearching] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [searchError, setSearchError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function restoreSelectedVehicle() {
+      const savedRegistration =
+        window.sessionStorage.getItem(
+          SELECTED_VEHICLE_STORAGE_KEY
+        )
+
+      if (!savedRegistration) {
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('registration', savedRegistration)
+        .maybeSingle()
+
+      if (!active) {
+        return
+      }
+
+      if (error || !data) {
+        window.sessionStorage.removeItem(
+          SELECTED_VEHICLE_STORAGE_KEY
+        )
+        return
+      }
+
+      setSelectedVehicle(data)
+    }
+
+    restoreSelectedVehicle()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     const cleanedSearch = searchText.trim()
@@ -179,7 +222,32 @@ export default function VehicleSearch({
     setHasSearched(true)
   }
 
+  function openVehicle(vehicle) {
+    if (!vehicle?.registration) {
+      return
+    }
+
+    window.sessionStorage.setItem(
+      SELECTED_VEHICLE_STORAGE_KEY,
+      vehicle.registration
+    )
+
+    setSelectedVehicle(vehicle)
+  }
+
+  function closeVehicle() {
+    window.sessionStorage.removeItem(
+      SELECTED_VEHICLE_STORAGE_KEY
+    )
+
+    setSelectedVehicle(null)
+  }
+
   async function handleLogout() {
+    window.sessionStorage.removeItem(
+      SELECTED_VEHICLE_STORAGE_KEY
+    )
+
     const { error } = await supabase.auth.signOut()
 
     if (error) {
@@ -193,6 +261,10 @@ export default function VehicleSearch({
         (vehicle) =>
           vehicle.registration !== deletedRegistration
       )
+    )
+
+    window.sessionStorage.removeItem(
+      SELECTED_VEHICLE_STORAGE_KEY
     )
 
     setSelectedVehicle(null)
@@ -218,6 +290,10 @@ export default function VehicleSearch({
   }
 
   function clearSearch() {
+    window.sessionStorage.removeItem(
+      SELECTED_VEHICLE_STORAGE_KEY
+    )
+
     setSearchText('')
     setVehicles([])
     setSelectedVehicle(null)
@@ -334,9 +410,7 @@ export default function VehicleSearch({
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() =>
-                  setSelectedVehicle(null)
-                }
+                onClick={closeVehicle}
               >
                 Back to Search Results
               </button>
@@ -634,7 +708,7 @@ export default function VehicleSearch({
                           type="button"
                           className="vehicle-search-open-button"
                           onClick={() =>
-                            setSelectedVehicle(vehicle)
+                            openVehicle(vehicle)
                           }
                         >
                           Open Vehicle Record

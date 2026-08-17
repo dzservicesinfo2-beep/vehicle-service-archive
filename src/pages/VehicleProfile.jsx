@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import EditVehicle from './EditVehicle'
 import PhotoGallery from './PhotoGallery'
 import ServiceHistory from './ServiceHistory'
@@ -7,6 +7,22 @@ import PhotoUpload from './PhotoUpload'
 import PDFReport from './PDFReport'
 import DeleteVehicle from './DeleteVehicle'
 import VehicleTimeline from './VehicleTimeline'
+
+function getServiceFormStorageKey(registration) {
+  return `dz-services:service-form-open:${registration}`
+}
+
+function loadServiceFormState(registration) {
+  if (!registration) {
+    return false
+  }
+
+  return (
+    window.sessionStorage.getItem(
+      getServiceFormStorageKey(registration)
+    ) === 'true'
+  )
+}
 
 export default function VehicleProfile({
   vehicle,
@@ -23,7 +39,31 @@ export default function VehicleProfile({
   const [
     showNewServiceVisit,
     setShowNewServiceVisit,
-  ] = useState(false)
+  ] = useState(() =>
+    loadServiceFormState(vehicle?.registration)
+  )
+
+  useEffect(() => {
+    setShowNewServiceVisit(
+      loadServiceFormState(vehicle?.registration)
+    )
+  }, [vehicle?.registration])
+
+  useEffect(() => {
+    if (!vehicle?.registration) {
+      return
+    }
+
+    const storageKey = getServiceFormStorageKey(
+      vehicle.registration
+    )
+
+    if (showNewServiceVisit) {
+      window.sessionStorage.setItem(storageKey, 'true')
+    } else {
+      window.sessionStorage.removeItem(storageKey)
+    }
+  }, [vehicle?.registration, showNewServiceVisit])
 
   if (!vehicle) {
     return null
@@ -252,6 +292,7 @@ export default function VehicleProfile({
           {showNewServiceVisit && (
             <div className="vehicle-profile-subsection">
               <NewServiceVisit
+                key={vehicle.registration}
                 vehicle={vehicle}
                 onVisitAdded={handleVisitAdded}
               />
